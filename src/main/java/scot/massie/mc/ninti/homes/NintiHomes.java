@@ -13,6 +13,36 @@ import org.apache.logging.log4j.Logger;
 @Mod("nintihomes")
 public class NintiHomes
 {
+    public static final String PERMISSION_HOMES_ADD             = "ninti.homes.personal.add";
+    public static final String PERMISSION_HOMES_ADD_INWORLD     = "ninti.homes.personal.add.inworld";
+    public static final String PERMISSION_HOMES_ADD_INZONE      = "ninti.homes.personal.add.inzone";
+    public static final String PERMISSION_HOMES_TP              = "ninti.homes.personal.tp";
+    public static final String PERMISSION_HOMES_LOCATE          = "ninti.homes.personal.locate";
+    public static final String PERMISSION_HOMES_ADMIN_ADD       = "ninti.homes.admin.add";
+    public static final String PERMISSION_HOMES_ADMIN_REMOVE    = "ninti.homes.admin.remove";
+    public static final String PERMISSION_HOMES_ADMIN_TP        = "ninti.homes.admin.tp";
+    public static final String PERMISSION_HOMES_ADMIN_LOCATE    = "ninti.homes.admin.locate";
+
+    /*
+
+    Permission notes:
+
+    ninti.homes.personal.add (and sub-permissions) accepts a positive integer permission argument. This argument is the
+    number of homes someone with this permission may have.
+
+    ninti.homes.personal.tp (and sub-permissions) accepts a number or equation defining the cost to teleport and a unit
+    the cost is in. (e.g. experience points, experience levels, or some other unit.) When teleportation is costed, it
+    should fire a cancellable event carrying the cost and the name of the unit - this will allow other mods to remove
+    the cost using their own units if they recognise the unit specified. (e.g. with a currency mod, tp may be defined
+    with "gp" as the unit)
+
+    ninti.homes.locate allows players to print their location and the location of the home in terms of coördinates, with
+    the distance between them.
+
+    The admin permissions have no limits nor costs.
+
+     */
+
     // Directly reference a log4j logger.
     private static final Logger LOGGER = LogManager.getLogger();
 
