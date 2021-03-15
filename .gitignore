@@ -1,0 +1,21 @@
+.*
+!.gitignore
+!.gitattributes
+
+#Eclipse
+/bin/
+*.launch
+
+#Idea
+/out/
+*.ipr
+*.iws
+*.iml
+
+#Gradle
+/build/
+/logs/
+/run/
+
+#ignored referenced mods
+/referencedmods/
