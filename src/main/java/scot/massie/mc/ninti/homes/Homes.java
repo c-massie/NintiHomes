@@ -264,6 +264,7 @@ public final class Homes
         double distance = Math.sqrt((xdist * xdist) + (ydist * ydist) + (zdist * zdist));
 
         Map<String, Double> result = getCurrencyCostsToTp(player, destination, toWorldPermissionStatus, distance);
+        Map<String, Double> zonesResult = new HashMap<>();
 
         for(Zone zone : Zones.getZonesEntityIsIn(player))
         {
@@ -275,13 +276,11 @@ public final class Homes
 
             for(Map.Entry<String, Double> entry
                     : getCurrencyCostsToTp(player, destination, toZonePermissionStatus, distance).entrySet())
-            {
-                Double existingAmount = result.get(entry.getKey());
-
-                if(existingAmount == null || entry.getValue() > existingAmount)
-                    result.put(entry.getKey(), entry.getValue());
-            }
+            { zonesResult.compute(entry.getKey(), (s, x) -> (x == null) ? (entry.getValue()) : (x + entry.getValue())); }
         }
+
+        for(Map.Entry<String, Double> entry : zonesResult.entrySet())
+            result.compute(entry.getKey(), (s, x) -> (x == null || x < entry.getValue()) ? (entry.getValue()) : (x));
 
         return result;
     }
