@@ -201,6 +201,16 @@ public final class Homes
         return record.getHomeNames();
     }
 
+    public static boolean hasHomes(UUID playerId)
+    {
+        PlayerHomesRecord record = records.get(playerId);
+
+        if(record == null)
+            return false;
+
+        return !record.playerHomes.isEmpty();
+    }
+
     public static void setHome(UUID playerId, String homeName, HomeLocation location)
     { getOrCreatePlayerRecord(playerId).setHome(homeName, location); }
 

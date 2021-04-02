@@ -20,9 +20,14 @@ public class NintiHomes
     public static final String PERMISSION_HOMES_TP_TOWORLD      = "ninti.homes.personal.tp.toworld";
     public static final String PERMISSION_HOMES_TP_TOZONE       = "ninti.homes.personal.tp.tozone";
     public static final String PERMISSION_HOMES_LOCATE          = "ninti.homes.personal.locate";
+    public static final String PERMISSION_HOMES_ADMIN           = "ninti.homes.admin";
+    public static final String PERMISSION_HOMES_ADMIN_READ      = "ninti.homes.admin.read";
     public static final String PERMISSION_HOMES_ADMIN_ADD       = "ninti.homes.admin.add";
     public static final String PERMISSION_HOMES_ADMIN_REMOVE    = "ninti.homes.admin.remove";
     public static final String PERMISSION_HOMES_ADMIN_TP        = "ninti.homes.admin.tp";
+    public static final String PERMISSION_HOMES_ADMIN_TP_ME     = "ninti.homes.admin.tp.me";
+    public static final String PERMISSION_HOMES_ADMIN_TP_THEM   = "ninti.homes.admin.tp.them";
+    public static final String PERMISSION_HOMES_ADMIN_TP_OTHER  = "ninti.homes.admin.tp.other";
     public static final String PERMISSION_HOMES_ADMIN_LOCATE    = "ninti.homes.admin.locate";
 
     /*
