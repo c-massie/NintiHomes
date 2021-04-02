@@ -191,7 +191,7 @@ public final class Homes
     private static PlayerHomesRecord getOrCreatePlayerRecord(UUID playerId)
     { return records.computeIfAbsent(playerId, PlayerHomesRecord::new); }
 
-    public static List<String> getHomes(UUID playerId)
+    public static List<String> getHomeNames(UUID playerId)
     {
         PlayerHomesRecord record = records.get(playerId);
 
@@ -200,6 +200,9 @@ public final class Homes
 
         return record.getHomeNames();
     }
+
+    public static List<UUID> getPlayersWithHomes()
+    { return new ArrayList<>(records.keySet()); }
 
     public static boolean hasHomes(UUID playerId)
     {

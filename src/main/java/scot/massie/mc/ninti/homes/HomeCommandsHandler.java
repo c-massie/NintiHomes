@@ -6,11 +6,14 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.minecraft.command.CommandSource;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraftforge.common.UsernameCache;
 import scot.massie.mc.ninti.core.Permissions;
 
-import java.util.function.Predicate;
+import java.util.List;
+import java.util.UUID;
 
 import static net.minecraft.command.Commands.*;
+import static scot.massie.mc.ninti.core.PluginUtils.*;
 
 public class HomeCommandsHandler
 {
@@ -37,28 +40,72 @@ public class HomeCommandsHandler
 
      */
 
+    private static final String noSuggestionsSuggestion = "(no suggestions)";
+
     private static final SuggestionProvider<CommandSource> playersOnlineSuggestionProvider
             = (context, builder) ->
     {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        for(String s : getServer().getPlayerList().getOnlinePlayerNames())
+            builder.suggest(s);
+
+        return builder.buildFuture();
     };
 
     private static final SuggestionProvider<CommandSource> playersWithHomesSuggestionProvider
             = (context, builder) ->
     {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        for(UUID id : Homes.getPlayersWithHomes())
+        {
+            String username = UsernameCache.getLastKnownUsername(id);
+
+            if(username != null)
+                builder.suggest(username);
+        }
+
+        return builder.buildFuture();
     };
 
     private static final SuggestionProvider<CommandSource> homesPlayerHasSuggestionProvider
             = (context, builder) ->
     {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        if(!(context.getSource().getEntity() instanceof PlayerEntity))
+        {
+            builder.suggest(noSuggestionsSuggestion);
+            return builder.buildFuture();
+        }
+
+        List<String> homeNames = Homes.getHomeNames(context.getSource().getEntity().getUniqueID());
+
+        if(homeNames.isEmpty())
+            builder.suggest(noSuggestionsSuggestion);
+        else
+            for(String homeName : homeNames)
+                builder.suggest(homeName);
+
+        return builder.buildFuture();
     };
 
     private static final SuggestionProvider<CommandSource> homesAnotherPlayerHasSuggestionProvider
             = (context, builder) ->
     {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        String playerName = StringArgumentType.getString(context, "username");
+        UUID playerId = getLastKnownUUIDOfPlayer(playerName);
+
+        if(playerId == null)
+        {
+            builder.suggest(noSuggestionsSuggestion);
+            return builder.buildFuture();
+        }
+
+        List<String> homeNames = Homes.getHomeNames(playerId);
+
+        if(homeNames.isEmpty())
+            builder.suggest(noSuggestionsSuggestion);
+        else
+            for(String homeName : homeNames)
+                builder.suggest(homeName);
+
+        return builder.buildFuture();
     };
 
     private static boolean hasPerm(CommandSource src, String... perms)
