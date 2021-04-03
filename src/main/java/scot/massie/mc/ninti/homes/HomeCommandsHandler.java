@@ -6,11 +6,15 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.minecraft.command.CommandSource;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraftforge.common.UsernameCache;
 import scot.massie.mc.ninti.core.Permissions;
+import scot.massie.mc.ninti.core.currencies.Currencies;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static net.minecraft.command.Commands.*;
 import static scot.massie.mc.ninti.core.PluginUtils.*;
@@ -119,7 +123,7 @@ public class HomeCommandsHandler
         if(!(src.getEntity() instanceof PlayerEntity))
             return false;
 
-        return Homes.hasHomes(((PlayerEntity)src.getEntity()).getUniqueID());
+        return Homes.hasHomes(src.getEntity().getUniqueID());
     }
 
     public static final LiteralArgumentBuilder<CommandSource> homeCommand
@@ -205,12 +209,70 @@ public class HomeCommandsHandler
 
     private static int cmdHome_default(CommandContext<CommandSource> cmdContext)
     {
-        throw new UnsupportedOperationException("Not implemented yet");
+        if(!(cmdContext.getSource().getEntity() instanceof ServerPlayerEntity))
+        {
+            sendMessage(cmdContext, "Can only TP players home.");
+            return 1;
+        }
+
+        ServerPlayerEntity player = (ServerPlayerEntity)cmdContext.getSource().getEntity();
+        String homeName = "";
+
+        try
+        { Homes.tpPlayerHome(player, homeName); }
+        catch(Homes.NoSuchHomeException e)
+        { sendMessage(cmdContext, "Could not find a default home."); }
+        catch(Homes.NoSuchWorldException e)
+        { sendMessage(cmdContext, "Could not find the world: " + e.getWorldId()); }
+        catch(Homes.NoPermissionToTeleportHomeException e)
+        { sendMessage(cmdContext, "You do not have permission to teleport to that home."); }
+        catch(Currencies.UnrecognisedCurrencyException e)
+        { sendMessage(cmdContext, "Unrecognised currency in costs: " + e.getCurrencyName()); }
+        catch(Homes.CouldNotAffordToTpHomeException e)
+        {
+            String msg = "You cannot afford to teleport to that home. Required: ";
+
+            for(Map.Entry<String, Double> i : e.getCosts().entrySet().stream().sorted().collect(Collectors.toList()))
+                msg += "\n - " + i.getKey() + ": " + i.getValue();
+
+            sendMessage(cmdContext, msg);
+        }
+
+        return 1;
     }
 
     private static int cmdHome_specified(CommandContext<CommandSource> cmdContext)
     {
-        throw new UnsupportedOperationException("Not implemented yet");
+        if(!(cmdContext.getSource().getEntity() instanceof ServerPlayerEntity))
+        {
+            sendMessage(cmdContext, "Can only TP players home.");
+            return 1;
+        }
+
+        ServerPlayerEntity player = (ServerPlayerEntity)cmdContext.getSource().getEntity();
+        String homeName = StringArgumentType.getString(cmdContext, "home name");
+
+        try
+        { Homes.tpPlayerHome(player, homeName); }
+        catch(Homes.NoSuchHomeException e)
+        { sendMessage(cmdContext, "Could not find a home by the name: " + e.getHomeName()); }
+        catch(Homes.NoSuchWorldException e)
+        { sendMessage(cmdContext, "Could not find the world: " + e.getWorldId()); }
+        catch(Homes.NoPermissionToTeleportHomeException e)
+        { sendMessage(cmdContext, "You do not have permission to teleport to that home."); }
+        catch(Currencies.UnrecognisedCurrencyException e)
+        { sendMessage(cmdContext, "Unrecognised currency in costs: " + e.getCurrencyName()); }
+        catch(Homes.CouldNotAffordToTpHomeException e)
+        {
+            String msg = "You cannot afford to teleport to that home. Required: ";
+
+            for(Map.Entry<String, Double> i : e.getCosts().entrySet().stream().sorted().collect(Collectors.toList()))
+                msg += "\n - " + i.getKey() + ": " + i.getValue();
+
+            sendMessage(cmdContext, msg);
+        }
+
+        return 1;
     }
 
     private static int cmdDelhome_default(CommandContext<CommandSource> cmdContext)

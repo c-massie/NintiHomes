@@ -81,6 +81,24 @@ public final class Homes
         { return missingPermission; }
     }
 
+    public static class CouldNotAffordToTpHomeException extends Exception
+    {
+        public CouldNotAffordToTpHomeException(String homeName, Map<String, Double> costs)
+        {
+            this.homeName = homeName;
+            this.costs = Collections.unmodifiableMap(new HashMap<>(costs));
+        }
+
+        final String homeName;
+        final Map<String, Double> costs;
+
+        public String getHomeName()
+        { return homeName; }
+
+        public Map<String, Double> getCosts()
+        { return costs; }
+    }
+
     public static class HomeLocation
     {
         public HomeLocation(String worldId, int x, int y, int z, int sidewaysAngle)
@@ -312,11 +330,12 @@ public final class Homes
         return getCurrencyCostsToTp(player, destination);
     }
 
-    public static boolean tpPlayerHome(ServerPlayerEntity player, String homeName)
+    public static void tpPlayerHome(ServerPlayerEntity player, String homeName)
             throws NoSuchHomeException,
                    NoSuchWorldException,
                    NoPermissionToTeleportHomeException,
-                   Currencies.UnrecognisedCurrencyException
+                   Currencies.UnrecognisedCurrencyException,
+                   CouldNotAffordToTpHomeException
     {
         HomeLocation destination;
 
@@ -338,10 +357,11 @@ public final class Homes
         if(destinationWorld == null)
             throw new NoSuchWorldException(destination.getWorldId());
 
-        boolean couldAfford = Currencies.chargePlayer(player, getCurrencyCostsToTp(player, destination));
+        Map<String, Double> costs = getCurrencyCostsToTp(player, destination);
+        boolean couldAfford = Currencies.chargePlayer(player, costs);
 
         if(!couldAfford)
-            return false;
+            throw new CouldNotAffordToTpHomeException(homeName, costs);
 
         player.teleport(destinationWorld,
                         destination.getX(),
@@ -349,7 +369,5 @@ public final class Homes
                         destination.getZ(),
                         destination.getSidewaysAngleInDegrees(), // Yaw, 0-360
                         0);                                      // Pitch, -90 to 90. -90 is straight up. 0 is level.
-
-        return true;
     }
 }
