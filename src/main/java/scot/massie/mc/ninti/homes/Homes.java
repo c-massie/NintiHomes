@@ -190,6 +190,9 @@ public final class Homes
         public void setHome(String homeName, HomeLocation location)
         { playerHomes.put(homeName, location); }
 
+        public boolean delHome(String homeName)
+        { return playerHomes.remove(homeName) != null; }
+
         public HomeLocation getHome(String homeName)
         { return playerHomes.get(homeName); }
 
@@ -234,6 +237,52 @@ public final class Homes
 
     public static void setHome(UUID playerId, String homeName, HomeLocation location)
     { getOrCreatePlayerRecord(playerId).setHome(homeName, location); }
+
+    public static boolean delHome(UUID playerId, String homeName)
+    {
+        PlayerHomesRecord record = records.get(playerId);
+
+        if(record == null)
+            return false;
+
+        return record.delHome(homeName);
+    }
+
+    public static int getAllowed(UUID playerId)
+    { return getAllowedUnderPermission(playerId, NintiHomes.PERMISSION_HOMES_ADD); }
+
+    public static int getAllowedInWorld(UUID playerId, String worldId)
+    {
+        String worldIdWithDots = worldId.replaceAll(":", ".");
+        return getAllowedUnderPermission(playerId, NintiHomes.PERMISSION_HOMES_ADD_INWORLD + "." + worldIdWithDots);
+    }
+
+    public static int getAllowedInZone(UUID playerId, String zoneName)
+    { return getAllowedUnderPermission(playerId, NintiHomes.PERMISSION_HOMES_ADD_INZONE + "." + zoneName); }
+
+    private static int getAllowedUnderPermission(UUID playerId, String permission)
+    {
+        PermissionStatus pstatus = Permissions.getPlayerPermissionStatus(playerId, permission);
+
+        if(!pstatus.hasPermission())
+            return 0;
+
+        if(pstatus.getPermissionArg() == null)
+            return Integer.MAX_VALUE;
+
+        int amountAllowed;
+
+        try
+        { amountAllowed = Integer.parseInt(pstatus.getPermissionArg()); }
+        catch(NumberFormatException e)
+        {
+            System.err.println("Could not read number of homes allowed as number (" + pstatus.getPermissionArg() + "), "
+                               + "allowing infinite homes.");
+            return Integer.MAX_VALUE;
+        }
+
+        return amountAllowed;
+    }
 
     private static Map<String, Double> getCurrencyCostsToTp(ServerPlayerEntity player,
                                                             HomeLocation destination,

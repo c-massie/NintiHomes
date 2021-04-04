@@ -277,23 +277,70 @@ public class HomeCommandsHandler
 
     private static int cmdDelhome_default(CommandContext<CommandSource> cmdContext)
     {
-        throw new UnsupportedOperationException("Not implemented yet");
+        if(!(cmdContext.getSource().getEntity() instanceof ServerPlayerEntity))
+        {
+            sendMessage(cmdContext, "Only players can use /delhome.");
+            return 1;
+        }
+
+        ServerPlayerEntity player = (ServerPlayerEntity)cmdContext.getSource().getEntity();
+        String homeName = "";
+
+        if(Homes.delHome(player.getUniqueID(), homeName))
+            sendMessage(cmdContext, "Home deleted!");
+        else
+            sendMessage(cmdContext, "Did not have a default home to delete.");
+
+        return 1;
     }
 
     private static int cmdDelhome_specified(CommandContext<CommandSource> cmdContext)
     {
-        throw new UnsupportedOperationException("Not implemented yet");
+        if(!(cmdContext.getSource().getEntity() instanceof ServerPlayerEntity))
+        {
+            sendMessage(cmdContext, "Only players can use /delhome.");
+            return 1;
+        }
+
+        ServerPlayerEntity player = (ServerPlayerEntity)cmdContext.getSource().getEntity();
+        String homeName = StringArgumentType.getString(cmdContext, "home name");
+
+        if(Homes.delHome(player.getUniqueID(), homeName))
+            sendMessage(cmdContext, "Home \"" + homeName + "\" deleted!");
+        else
+            sendMessage(cmdContext, "Did not have a default home to delete.");
+
+        return 1;
+    }
+
+    private static int cmdSethome(CommandContext<CommandSource> cmdContext, String homeName)
+    {
+        if(!(cmdContext.getSource().getEntity() instanceof ServerPlayerEntity))
+        {
+            sendMessage(cmdContext, "Only players can use /sethome.");
+            return 1;
+        }
+
+        ServerPlayerEntity player = (ServerPlayerEntity)cmdContext.getSource().getEntity();
+        UUID playerId = player.getUniqueID();
+        String worldId = getWorldId(player.getServerWorld());
+        Homes.HomeLocation location = new Homes.HomeLocation(worldId,
+                                                             (int)player.getPosX(),
+                                                             (int)player.getPosY(),
+                                                             (int)player.getPosZ(),
+                                                             (int)player.getPitchYaw().x);
+
+        // TO DO: Check homes allowed, homes allowed in the world, and homes allowed in any zones.
+
+        Homes.setHome(player.getUniqueID(), homeName, location);
+        return 1;
     }
 
     private static int cmdSethome_default(CommandContext<CommandSource> cmdContext)
-    {
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
+    { return cmdSethome(cmdContext, ""); }
 
     private static int cmdSethome_specified(CommandContext<CommandSource> cmdContext)
-    {
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
+    { return cmdSethome(cmdContext, StringArgumentType.getString(cmdContext, "home name")); }
 
     private static int cmdGettphomecost_default(CommandContext<CommandSource> cmdContext)
     {
