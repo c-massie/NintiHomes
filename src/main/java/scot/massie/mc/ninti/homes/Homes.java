@@ -2,18 +2,21 @@ package scot.massie.mc.ninti.homes;
 
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
-import net.minecraft.world.server.ServerWorld;
+import net.minecraftforge.common.UsernameCache;
+import scot.massie.lib.collections.maps.MapUtils;
 import scot.massie.lib.maths.EquationEvaluation;
 import scot.massie.lib.permissions.PermissionStatus;
 import scot.massie.mc.ninti.core.Permissions;
 import scot.massie.mc.ninti.core.PluginUtils;
 import scot.massie.mc.ninti.core.currencies.Currencies;
+import scot.massie.mc.ninti.core.exceptions.MissingPermissionException;
+import scot.massie.mc.ninti.core.exceptions.NoSuchWorldException;
+import scot.massie.mc.ninti.core.utilclasses.EntityLocation;
 import scot.massie.mc.ninti.core.zones.Zone;
 import scot.massie.mc.ninti.core.zones.Zones;
 
 import java.util.*;
-
-import static scot.massie.mc.ninti.core.PluginUtils.*;
+import java.util.function.BiFunction;
 
 public final class Homes
 {
@@ -41,6 +44,19 @@ public final class Homes
             this.homeName = homeName;
         }
 
+        public NoSuchHomeException(UUID playerId, String homeName)
+        {
+            super("The player " + getHowToReferToPlayer(playerId) + " has no home by the name \"" + homeName + "\".");
+            this.playerId = playerId;
+            this.homeName = homeName;
+        }
+
+        private static String getHowToReferToPlayer(UUID playerId)
+        {
+            String name = UsernameCache.getLastKnownUsername(playerId);
+            return name != null ? name : "with the UUID " + playerId;
+        }
+
         final UUID playerId;
         final String homeName;
 
@@ -51,46 +67,21 @@ public final class Homes
         { return homeName; }
     }
 
-    public static class NoSuchWorldException extends Exception
-    {
-        public NoSuchWorldException(String worldId)
-        {
-            super("The world does not exist: " + worldId);
-            this.worldId = worldId;
-        }
-
-        final String worldId;
-
-        public String getWorldId()
-        { return worldId; }
-    }
-
-    public static class NoPermissionToTeleportHomeException extends Exception
-    {
-        public NoPermissionToTeleportHomeException(PlayerEntity player, String missingPermission)
-        {
-            super("The player " + player.getGameProfile().getName() + " does not have the required permission: "
-                  + missingPermission);
-
-            this.missingPermission = missingPermission;
-        }
-
-        final String missingPermission;
-
-        public String getMissingPermission()
-        { return missingPermission; }
-    }
-
     public static class CouldNotAffordToTpHomeException extends Exception
     {
-        public CouldNotAffordToTpHomeException(String homeName, Map<String, Double> costs)
+        public CouldNotAffordToTpHomeException(UUID playerId, String homeName, Map<String, Double> costs)
         {
+            this.playerId = playerId;
             this.homeName = homeName;
             this.costs = Collections.unmodifiableMap(new HashMap<>(costs));
         }
 
-        final String homeName;
-        final Map<String, Double> costs;
+        protected final UUID playerId;
+        protected final String homeName;
+        protected final Map<String, Double> costs;
+
+        public UUID getPlayerId()
+        { return playerId; }
 
         public String getHomeName()
         { return homeName; }
@@ -99,81 +90,61 @@ public final class Homes
         { return costs; }
     }
 
-    public static class HomeLocation
+    public static class HomeCapReachedException extends Exception
     {
-        public HomeLocation(String worldId, int x, int y, int z, int sidewaysAngle)
+        protected HomeCapReachedException(UUID playerId, int homesAllowed, String msg)
         {
+            super(msg);
+            this.playerId = playerId;
+            this.homesAllowed = homesAllowed;
+        }
+
+        public HomeCapReachedException(UUID playerId, int homesAllowed)
+        {
+            this(playerId, homesAllowed, getHowToReferToPlayer(playerId) + " has reached the maximum number of homes "
+                                         + "they're allowed. (" + homesAllowed + ")");
+        }
+
+        protected final UUID playerId;
+        protected final int homesAllowed;
+
+        public UUID getPlayerId()
+        { return playerId; }
+
+        public int getHomesAllowed()
+        { return homesAllowed; }
+    }
+
+    public static class WorldHomeCapReachedException extends HomeCapReachedException
+    {
+        protected WorldHomeCapReachedException(UUID playerId, int homesAllowed, String worldId)
+        {
+            super(playerId, homesAllowed, getHowToReferToPlayer(playerId) + " has reached the maximum number of homes "
+                                          + "they're allowed (" + homesAllowed + ") in the world " + worldId);
+
             this.worldId = worldId;
-            this.x = x;
-            this.y = y;
-            this.z = z;
-            this.sidewaysAngle = sidewaysAngle;
         }
 
-        public HomeLocation(String asString)
-        {
-            String[] split = asString.split(", ", 5);
-
-            if(split.length != 5)
-                throw new HomeLocationNotParsableException("Not parsable as a home location: " + asString);
-
-            try
-            {
-                x = Integer.parseInt(split[0]);
-                y = Integer.parseInt(split[1]);
-                z = Integer.parseInt(split[2]);
-                sidewaysAngle = Integer.parseInt(split[3]);
-            }
-            catch(NumberFormatException e)
-            { throw new HomeLocationNotParsableException("Not parsable as a home location: " + asString, e); }
-
-            worldId = split[4];
-        }
-
-        String worldId;
-        int x, y, z;
-        int sidewaysAngle;
+        protected final String worldId;
 
         public String getWorldId()
         { return worldId; }
+    }
 
-        public int getX()
-        { return x; }
-
-        public int getY()
-        { return y; }
-
-        public int getZ()
-        { return z; }
-
-        public int getSidewaysAngleInDegrees()
-        { return sidewaysAngle; }
-
-        @Override
-        public boolean equals(Object o)
+    public static class ZoneHomeCapReachedException extends HomeCapReachedException
+    {
+        protected ZoneHomeCapReachedException(UUID playerId, int homesAllowed, String zoneName)
         {
-            if(this == o)
-                return true;
+            super(playerId, homesAllowed, getHowToReferToPlayer(playerId) + " has reached the maximum number of homes "
+                                          + "they're allowed (" + homesAllowed + ") in the zone " + zoneName);
 
-            if(o == null || getClass() != o.getClass())
-                return false;
-
-            HomeLocation other = (HomeLocation)o;
-
-            return x == other.x
-                && y == other.y
-                && z == other.z
-                && sidewaysAngle == other.sidewaysAngle
-                && worldId.equals(other.worldId);
+            this.zoneName = zoneName;
         }
 
-        @Override
-        public int hashCode()
-        { return Objects.hash(worldId, x, y, z, sidewaysAngle); }
+        protected final String zoneName;
 
-        @Override
-        public String toString()
-        { return "" + x + ", " + y + ", " + z + ", " + sidewaysAngle + ", " + worldId; }
+        public String getZoneName()
+        { return zoneName; }
     }
 
     private static class PlayerHomesRecord
@@ -182,19 +153,47 @@ public final class Homes
         { this.playerId = playerId; }
 
         private final UUID playerId;
-        private final Map<String, HomeLocation> playerHomes = new HashMap<>();
+        private final Map<String, EntityLocation> playerHomes = new HashMap<>();
 
         public UUID getPlayerId()
         { return playerId; }
 
-        public void setHome(String homeName, HomeLocation location)
+        public void setHome(String homeName, EntityLocation location)
         { playerHomes.put(homeName, location); }
 
-        public boolean delHome(String homeName)
-        { return playerHomes.remove(homeName) != null; }
+        public EntityLocation deleteHome(String homeName)
+        { return playerHomes.remove(homeName); }
 
-        public HomeLocation getHome(String homeName)
+        public boolean hasHomeWithName(String homeName)
+        { return playerHomes.containsKey(homeName); }
+
+        public EntityLocation getHome(String homeName)
         { return playerHomes.get(homeName); }
+
+        public Map<String, EntityLocation> getHomes()
+        { return new HashMap<>(playerHomes); }
+
+        public Map<String, EntityLocation> getHomesInZone(Zone zone)
+        {
+            HashMap<String, EntityLocation> result = new HashMap<>();
+
+            for(Map.Entry<String, EntityLocation> e : playerHomes.entrySet())
+                if(zone.contains(e.getValue()))
+                    result.put(e.getKey(), e.getValue());
+
+            return result;
+        }
+
+        public Map<String, EntityLocation> getHomesInWorld(String worldId)
+        {
+            HashMap<String, EntityLocation> result = new HashMap<>();
+
+            for(Map.Entry<String, EntityLocation> e : playerHomes.entrySet())
+                if(e.getValue().getWorldId().equals(worldId))
+                    result.put(e.getKey(), e.getValue());
+
+            return result;
+        }
 
         public List<String> getHomeNames()
         {
@@ -202,6 +201,34 @@ public final class Homes
             result.sort(Comparator.naturalOrder());
             return result;
         }
+
+        public int countHomes()
+        { return playerHomes.size(); }
+
+        public int countHomesInZone(Zone zone)
+        {
+            int count = 0;
+
+            for(Map.Entry<String, EntityLocation> e : playerHomes.entrySet())
+                if(zone.contains(e.getValue()))
+                    count++;
+
+            return count;
+        }
+
+        public int countHomesInWorld(String worldId)
+        {
+            int count = 0;
+
+            for(Map.Entry<String, EntityLocation> e : playerHomes.entrySet())
+                if(e.getValue().getWorldId().equals(worldId))
+                    count++;
+
+            return count;
+        }
+
+        boolean isEmpty()
+        { return playerHomes.isEmpty(); }
     }
 
     private Homes()
@@ -209,85 +236,156 @@ public final class Homes
 
     private static final Map<UUID, PlayerHomesRecord> records = new HashMap<>();
 
-    private static PlayerHomesRecord getOrCreatePlayerRecord(UUID playerId)
-    { return records.computeIfAbsent(playerId, PlayerHomesRecord::new); }
+    /*
 
-    public static List<String> getHomeNames(UUID playerId)
-    {
-        PlayerHomesRecord record = records.get(playerId);
+    hasHomes(UUID playerId)
+    getHomes(UUID playerId)
 
-        if(record == null)
-            return Collections.emptyList();
+    countHomes(UUID playerId)
+    countHomesInZone(UUID playerId, String zoneName)
+    countHomesInWorld(UUID playerId, String worldId)
 
-        return record.getHomeNames();
-    }
+    getPlayersWithHomes()
 
-    public static List<UUID> getPlayersWithHomes()
-    { return new ArrayList<>(records.keySet()); }
+    setHome(UUID playerId, String homeName, HomeLocation location)
+    requestSetHome(UUID playerId, String homeName, HomeLocation location)
+    requestSetHome(ServerPlayerEntity player, String homeName)
+    deleteHome(UUID playerId, String homeName)
+    clear()
 
+    getCostToTp(ServerPlayerEntity player, String homeName)
+    getCostToTp(ServerPlayerEntity player, HomeLocation destination, PermissionStatus permStatus, double distance)
+    requestCostToTp(ServerPlayerEntity player, String homeName)
+
+    tpPlayerToHome(ServerPlayerEntity player, String homeName)
+    tpPlayerToHome(ServerPlayerEntity player, UUID homeOwnerId, String homeName)
+    requesPlayerTpToHome(ServerPlayerEntity player, String homeName)
+
+    save()
+    load()
+
+     */
+
+    //region accessors
     public static boolean hasHomes(UUID playerId)
     {
-        PlayerHomesRecord record = records.get(playerId);
-
-        if(record == null)
-            return false;
-
-        return !record.playerHomes.isEmpty();
+        synchronized(records)
+        { return records.containsKey(playerId); }
     }
 
-    public static void setHome(UUID playerId, String homeName, HomeLocation location)
-    { getOrCreatePlayerRecord(playerId).setHome(homeName, location); }
-
-    public static boolean delHome(UUID playerId, String homeName)
+    public static Map<UUID, Map<String, EntityLocation>> getHomes()
     {
-        PlayerHomesRecord record = records.get(playerId);
+        Map<UUID, Map<String, EntityLocation>> result = new HashMap<>();
 
-        if(record == null)
-            return false;
-
-        return record.delHome(homeName);
-    }
-
-    public static int getAllowed(UUID playerId)
-    { return getAllowedUnderPermission(playerId, NintiHomes.PERMISSION_HOMES_ADD); }
-
-    public static int getAllowedInWorld(UUID playerId, String worldId)
-    {
-        String worldIdWithDots = worldId.replaceAll(":", ".");
-        return getAllowedUnderPermission(playerId, NintiHomes.PERMISSION_HOMES_ADD_INWORLD + "." + worldIdWithDots);
-    }
-
-    public static int getAllowedInZone(UUID playerId, String zoneName)
-    { return getAllowedUnderPermission(playerId, NintiHomes.PERMISSION_HOMES_ADD_INZONE + "." + zoneName); }
-
-    private static int getAllowedUnderPermission(UUID playerId, String permission)
-    {
-        PermissionStatus pstatus = Permissions.getPlayerPermissionStatus(playerId, permission);
-
-        if(!pstatus.hasPermission())
-            return 0;
-
-        if(pstatus.getPermissionArg() == null)
-            return Integer.MAX_VALUE;
-
-        int amountAllowed;
-
-        try
-        { amountAllowed = Integer.parseInt(pstatus.getPermissionArg()); }
-        catch(NumberFormatException e)
+        synchronized(records)
         {
-            System.err.println("Could not read number of homes allowed as number (" + pstatus.getPermissionArg() + "), "
-                               + "allowing infinite homes.");
-            return Integer.MAX_VALUE;
+            for(Map.Entry<UUID, PlayerHomesRecord> record : records.entrySet())
+                result.put(record.getKey(), record.getValue().getHomes());
         }
 
-        return amountAllowed;
+        return result;
     }
 
-    private static Map<String, Double> getCurrencyCostsToTp(ServerPlayerEntity player,
-                                                            HomeLocation destination,
-                                                            PermissionStatus permStatus,
-                                                            double distance)
+    public static Map<String, EntityLocation> getHomes(UUID playerId)
+    {
+        synchronized(records)
+        {
+            PlayerHomesRecord record = records.get(playerId);
+
+            if(record == null)
+                return Collections.emptyMap();
+
+            return Collections.unmodifiableMap(new HashMap<>(record.playerHomes));
+        }
+    }
+
+    public static Collection<UUID> getPlayersWithHomes()
+    {
+        synchronized(records)
+        { return new HashSet<>(records.keySet()); }
+    }
+
+    public static Map<String, Double> getCostToTp(PlayerEntity player, String homeName)
+            throws NoSuchHomeException, NoSuchWorldException, MissingPermissionException
+    {
+        EntityLocation destination;
+
+        synchronized(records)
+        {
+            PlayerHomesRecord playerRecord = records.get(player.getUniqueID());
+
+            if(playerRecord == null)
+                throw new NoSuchHomeException(player, homeName);
+
+            destination = playerRecord.getHome(homeName);
+        }
+
+        if(destination == null)
+            throw new NoSuchHomeException(player, homeName);
+
+        if(PluginUtils.getWorldById(destination.getWorldId()) == null)
+            throw new NoSuchWorldException(destination.getWorldId());
+
+        return getCostToTp(player, destination);
+    }
+
+    private static Map<String, Double> getCostToTp(PlayerEntity player, EntityLocation destination)
+            throws MissingPermissionException
+    {
+        EntityLocation currentLocation = new EntityLocation(player);
+
+        String fromWorldPermission = NintiHomes.PERMISSION_HOMES_TP_FROMWORLD + "."
+                                     + (currentLocation.getWorldId().replaceAll(":", "."));
+
+        String toWorldPermission = NintiHomes.PERMISSION_HOMES_TP_TOWORLD + "."
+                                   + (destination.getWorldId().replaceAll(":", "."));
+
+        PermissionStatus fromWorldPermissionStatus = Permissions.getPlayerPermissionStatus(player, fromWorldPermission);
+        PermissionStatus toWorldPermissionStatus = Permissions.getPlayerPermissionStatus(player, toWorldPermission);
+
+        if(!fromWorldPermissionStatus.hasPermission())
+            throw new MissingPermissionException(player, fromWorldPermission);
+
+        if(!toWorldPermissionStatus.hasPermission())
+            throw new MissingPermissionException(player, toWorldPermission);
+
+        double distance = currentLocation.getDistanceTo(destination);
+        Map<String, Double> costs = MapUtils.maxValues(getCostToTp(currentLocation,
+                                                                   destination,
+                                                                   fromWorldPermissionStatus,
+                                                                   distance),
+                                                       getCostToTp(currentLocation,
+                                                                   destination,
+                                                                   toWorldPermissionStatus,
+                                                                   distance));
+
+        for(Zone z : Zones.getZonesAt(currentLocation))
+        {
+            String fromZonePermission = NintiHomes.PERMISSION_HOMES_TP_FROMZONE + "." + z.getName();
+            PermissionStatus fromZonePermStatus = Permissions.getPlayerPermissionStatus(player, fromZonePermission);
+            Map<String, Double> zoneCosts = getCostToTp(currentLocation, destination, fromZonePermStatus, distance);
+
+            for(Map.Entry<String, Double> e : zoneCosts.entrySet())
+                costs.compute(e.getKey(), (k, v) -> (v != null && v >= e.getValue()) ? (v) : (e.getValue()));
+        }
+
+        for(Zone z : Zones.getZonesAt(destination))
+        {
+            String toZonePermission = NintiHomes.PERMISSION_HOMES_TP_TOZONE + "." + z.getName();
+            PermissionStatus toZonePermStatus = Permissions.getPlayerPermissionStatus(player, toZonePermission);
+            Map<String, Double> zoneCosts = getCostToTp(currentLocation, destination, toZonePermStatus, distance);
+
+            for(Map.Entry<String, Double> e : zoneCosts.entrySet())
+                costs.compute(e.getKey(), (k, v) -> (v != null && v >= e.getValue()) ? (v) : (e.getValue()));
+        }
+
+        return costs;
+    }
+
+    private static Map<String, Double> getCostToTp(EntityLocation playerLocation,
+                                                   EntityLocation homeLocation,
+                                                   PermissionStatus permStatus,
+                                                   double distance)
     {
         String permArg = permStatus.getPermissionArg();
 
@@ -296,7 +394,7 @@ public final class Homes
 
         Map<String, Double> result = new HashMap<>();
         String[] argLines = permArg.split("\\r?\\n|\\r");
-        double transworldDifferentiator = !getWorldId(player.getServerWorld()).equals(destination.getWorldId()) ? 1 : 0;
+        double transworldDifferentiator = playerLocation.getWorldId().equals(homeLocation.getWorldId()) ? 1 : 0;
 
         for(String line : argLines)
         {
@@ -316,107 +414,186 @@ public final class Homes
 
         return result;
     }
+    //endregion
 
-    private static Map<String, Double> getCurrencyCostsToTp(ServerPlayerEntity player, HomeLocation destination)
-            throws NoPermissionToTeleportHomeException
+    //region mutators
+    public static void setHome(UUID playerId, String homeName, EntityLocation location)
     {
-        String toWorldPermission = NintiHomes.PERMISSION_HOMES_TP_TOWORLD + "."
-                                   + (destination.worldId.replaceAll(":", "."));
-
-        PermissionStatus toWorldPermissionStatus = Permissions.getPlayerPermissionStatus(player, toWorldPermission);
-
-        if(!toWorldPermissionStatus.hasPermission())
-            throw new NoPermissionToTeleportHomeException(player, toWorldPermission);
-
-        double xdist = destination.getX() - player.getPosX();
-        double ydist = destination.getY() - player.getPosY();
-        double zdist = destination.getZ() - player.getPosZ();
-        double distance = Math.sqrt((xdist * xdist) + (ydist * ydist) + (zdist * zdist));
-
-        Map<String, Double> result = getCurrencyCostsToTp(player, destination, toWorldPermissionStatus, distance);
-        Map<String, Double> zonesResult = new HashMap<>();
-
-        for(Zone zone : Zones.getZonesEntityIsIn(player))
-        {
-            String toZonePermission = NintiHomes.PERMISSION_HOMES_TP_TOZONE + "." + zone.getName();
-            PermissionStatus toZonePermissionStatus = Permissions.getPlayerPermissionStatus(player, toZonePermission);
-
-            if(!toZonePermissionStatus.hasPermission())
-                throw new NoPermissionToTeleportHomeException(player, toZonePermission);
-
-            for(Map.Entry<String, Double> entry
-                    : getCurrencyCostsToTp(player, destination, toZonePermissionStatus, distance).entrySet())
-            { zonesResult.compute(entry.getKey(), (s, x) -> (x == null) ? (entry.getValue()) : (x + entry.getValue())); }
-        }
-
-        for(Map.Entry<String, Double> entry : zonesResult.entrySet())
-            result.compute(entry.getKey(), (s, x) -> (x == null || x < entry.getValue()) ? (entry.getValue()) : (x));
-
-        return result;
+        synchronized(records)
+        { records.computeIfAbsent(playerId, PlayerHomesRecord::new).setHome(homeName, location); }
     }
 
-    public static Map<String, Double> getCostToTp(ServerPlayerEntity player, String homeName)
-            throws NoSuchHomeException, NoSuchWorldException, NoPermissionToTeleportHomeException
+    public static void setHome(PlayerEntity entity, String homeName)
+    { setHome(entity.getUniqueID(), homeName, new EntityLocation(entity)); }
+
+    public static void requestSetHome(UUID playerId, String homeName, EntityLocation location)
+            throws MissingPermissionException, WorldHomeCapReachedException, ZoneHomeCapReachedException
     {
-        HomeLocation destination;
+        String permissionForWorld = NintiHomes.PERMISSION_HOMES_ADD_INWORLD + "."
+                                    + (location.getWorldId().replaceAll(":", "."));
+
+        int homesAllowed = getHomesAllowed(playerId, permissionForWorld);
+        Zone limitingZone = null;
+
+        for(Zone z : Zones.getZonesAt(location))
+        {
+            String zonePerm = NintiHomes.PERMISSION_HOMES_ADD_INZONE + "." + z.getName();
+            int allowedInZone = getHomesAllowed(playerId, zonePerm);
+
+            if(allowedInZone < homesAllowed)
+            {
+                homesAllowed = allowedInZone;
+                limitingZone = z;
+            }
+        }
 
         synchronized(records)
         {
-            PlayerHomesRecord playerRecord = records.get(player.getUniqueID());
+            PlayerHomesRecord record = records.get(playerId);
+            boolean creatingRecord = false;
 
-            if(playerRecord == null)
-                throw new NoSuchHomeException(player, homeName);
+            if(record == null)
+            {
+                record = new PlayerHomesRecord(playerId);
+                creatingRecord = true;
+            }
 
-            destination = playerRecord.getHome(homeName);
+            if(!record.hasHomeWithName(homeName))
+            {
+                if(limitingZone == null) // limiting permission is for a world
+                {
+                    if(record.countHomesInWorld(location.getWorldId()) > homesAllowed)
+                        throw new WorldHomeCapReachedException(playerId, homesAllowed, location.getWorldId());
+                }
+                else // limiting permission is for a zone
+                {
+                    if(record.countHomesInZone(limitingZone) > homesAllowed)
+                        throw new ZoneHomeCapReachedException(playerId, homesAllowed, limitingZone.getName());
+                }
+            }
+
+            // Only put the newly created record in the records map if something is actually added to it.
+            if(creatingRecord)
+                records.put(playerId, record);
+
+            record.setHome(homeName, location);
         }
-
-        if(destination == null)
-            throw new NoSuchHomeException(player, homeName);
-
-        if(getWorldById(destination.getWorldId()) == null)
-            throw new NoSuchWorldException(destination.getWorldId());
-
-        return getCurrencyCostsToTp(player, destination);
     }
 
-    public static void tpPlayerHome(ServerPlayerEntity player, String homeName)
+    private static int getHomesAllowed(UUID playerId, String permission) throws MissingPermissionException
+    {
+        PermissionStatus permStatus = Permissions.getPlayerPermissionStatus(playerId, permission);
+
+        if(!permStatus.hasPermission())
+            throw new MissingPermissionException(playerId, permission);
+
+        if(permStatus.getPermissionArg() == null)
+            return Integer.MAX_VALUE;
+
+        try
+        { return Integer.parseUnsignedInt(permStatus.getPermissionArg()); }
+        catch(NumberFormatException e)
+        { return Integer.MAX_VALUE; }
+    }
+
+    public static void requestSetHome(PlayerEntity entity, String homeName)
+            throws MissingPermissionException, WorldHomeCapReachedException, ZoneHomeCapReachedException
+    { requestSetHome(entity.getUniqueID(), homeName, new EntityLocation(entity)); }
+
+    public static EntityLocation deleteHome(UUID playerId, String homeName)
+    {
+        synchronized(records)
+        {
+            PlayerHomesRecord record = records.get(playerId);
+
+            if(record == null)
+                return null;
+
+            EntityLocation result = record.deleteHome(homeName);
+
+            if(record.isEmpty())
+                records.remove(playerId);
+
+            return result;
+        }
+    }
+
+    public static EntityLocation deleteHome(PlayerEntity player, String homeName)
+    { return deleteHome(player.getUniqueID(), homeName); }
+
+    public static void clear()
+    {
+        synchronized(records)
+        { records.clear(); }
+    }
+    //endregion
+
+    public static void tpPlayerToHome(ServerPlayerEntity player, String homeName) throws NoSuchHomeException
+    { tpPlayerToHome(player, player.getUniqueID(), homeName); }
+
+    public static void tpPlayerToHome(ServerPlayerEntity player, UUID homeOwningPlayerId, String homeName)
+            throws NoSuchHomeException
+    {
+        EntityLocation home;
+
+        synchronized(records)
+        {
+            PlayerHomesRecord homeOwnerRecord = records.get(homeOwningPlayerId);
+
+            if(homeOwnerRecord == null)
+                throw new NoSuchHomeException(homeOwningPlayerId, homeName);
+
+            home = homeOwnerRecord.getHome(homeName);
+        }
+
+        if(home == null)
+            throw new NoSuchHomeException(homeOwningPlayerId, homeName);
+
+        home.tpPlayerToHere(player);
+    }
+
+    public static void tpPlayerToHome(ServerPlayerEntity player, PlayerEntity homeOwningPlayer, String homeName)
+            throws NoSuchHomeException
+    { tpPlayerToHome(player, homeOwningPlayer.getUniqueID(), homeName); }
+
+    public static void requestTpPlayerToHome(ServerPlayerEntity player, String homeName)
             throws NoSuchHomeException,
                    NoSuchWorldException,
-                   NoPermissionToTeleportHomeException,
+                   MissingPermissionException,
                    Currencies.UnrecognisedCurrencyException,
                    CouldNotAffordToTpHomeException
     {
-        HomeLocation destination;
-
         synchronized(records)
         {
-            PlayerHomesRecord playerRecord = records.get(player.getUniqueID());
+            Map<String, Double> costs = getCostToTp(player, homeName);
 
-            if(playerRecord == null)
-                throw new NoSuchHomeException(player, homeName);
+            if(!Currencies.chargePlayer(player, costs))
+                throw new CouldNotAffordToTpHomeException(player.getUniqueID(), homeName, costs);
 
-            destination = playerRecord.getHome(homeName);
+            tpPlayerToHome(player, homeName);
         }
+    }
+    //endregion
 
-        if(destination == null)
-            throw new NoSuchHomeException(player, homeName);
+    //region filehandling
+    public static void save()
+    {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
 
-        ServerWorld destinationWorld = getWorldById(destination.getWorldId());
+    public static void load()
+    {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+    //endregion
 
-        if(destinationWorld == null)
-            throw new NoSuchWorldException(destination.getWorldId());
+    private static String getHowToReferToPlayer(UUID playerId)
+    {
+        String name = UsernameCache.getLastKnownUsername(playerId);
 
-        Map<String, Double> costs = getCurrencyCostsToTp(player, destination);
-        boolean couldAfford = Currencies.chargePlayer(player, costs);
+        if(name == null)
+            return "The player with the ID " + playerId;
 
-        if(!couldAfford)
-            throw new CouldNotAffordToTpHomeException(homeName, costs);
-
-        player.teleport(destinationWorld,
-                        destination.getX(),
-                        destination.getY(),
-                        destination.getZ(),
-                        destination.getSidewaysAngleInDegrees(), // Yaw, 0-360
-                        0);                                      // Pitch, -90 to 90. -90 is straight up. 0 is level.
+        return "The player " + name;
     }
 }

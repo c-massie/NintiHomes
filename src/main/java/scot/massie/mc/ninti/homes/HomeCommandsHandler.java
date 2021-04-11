@@ -10,6 +10,9 @@ import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraftforge.common.UsernameCache;
 import scot.massie.mc.ninti.core.Permissions;
 import scot.massie.mc.ninti.core.currencies.Currencies;
+import scot.massie.mc.ninti.core.exceptions.MissingPermissionException;
+import scot.massie.mc.ninti.core.exceptions.NoSuchWorldException;
+import scot.massie.mc.ninti.core.utilclasses.EntityLocation;
 
 import java.util.List;
 import java.util.Map;
@@ -78,12 +81,12 @@ public class HomeCommandsHandler
             return builder.buildFuture();
         }
 
-        List<String> homeNames = Homes.getHomeNames(context.getSource().getEntity().getUniqueID());
+        Map<String, EntityLocation> homes = Homes.getHomes(context.getSource().getEntity().getUniqueID());
 
-        if(homeNames.isEmpty())
+        if(homes.isEmpty())
             builder.suggest(noSuggestionsSuggestion);
         else
-            for(String homeName : homeNames)
+            for(String homeName : homes.keySet())
                 builder.suggest(homeName);
 
         return builder.buildFuture();
@@ -101,12 +104,12 @@ public class HomeCommandsHandler
             return builder.buildFuture();
         }
 
-        List<String> homeNames = Homes.getHomeNames(playerId);
+        Map<String, EntityLocation> homes = Homes.getHomes(context.getSource().getEntity().getUniqueID());
 
-        if(homeNames.isEmpty())
+        if(homes.isEmpty())
             builder.suggest(noSuggestionsSuggestion);
         else
-            for(String homeName : homeNames)
+            for(String homeName : homes.keySet())
                 builder.suggest(homeName);
 
         return builder.buildFuture();
@@ -219,12 +222,12 @@ public class HomeCommandsHandler
         String homeName = "";
 
         try
-        { Homes.tpPlayerHome(player, homeName); }
+        { Homes.requestTpPlayerToHome(player, homeName); }
         catch(Homes.NoSuchHomeException e)
         { sendMessage(cmdContext, "Could not find a default home."); }
-        catch(Homes.NoSuchWorldException e)
+        catch(NoSuchWorldException e)
         { sendMessage(cmdContext, "Could not find the world: " + e.getWorldId()); }
-        catch(Homes.NoPermissionToTeleportHomeException e)
+        catch(MissingPermissionException e)
         { sendMessage(cmdContext, "You do not have permission to teleport to that home."); }
         catch(Currencies.UnrecognisedCurrencyException e)
         { sendMessage(cmdContext, "Unrecognised currency in costs: " + e.getCurrencyName()); }
@@ -253,12 +256,12 @@ public class HomeCommandsHandler
         String homeName = StringArgumentType.getString(cmdContext, "home name");
 
         try
-        { Homes.tpPlayerHome(player, homeName); }
+        { Homes.requestTpPlayerToHome(player, homeName); }
         catch(Homes.NoSuchHomeException e)
         { sendMessage(cmdContext, "Could not find a home by the name: " + e.getHomeName()); }
-        catch(Homes.NoSuchWorldException e)
+        catch(NoSuchWorldException e)
         { sendMessage(cmdContext, "Could not find the world: " + e.getWorldId()); }
-        catch(Homes.NoPermissionToTeleportHomeException e)
+        catch(MissingPermissionException e)
         { sendMessage(cmdContext, "You do not have permission to teleport to that home."); }
         catch(Currencies.UnrecognisedCurrencyException e)
         { sendMessage(cmdContext, "Unrecognised currency in costs: " + e.getCurrencyName()); }
@@ -286,7 +289,7 @@ public class HomeCommandsHandler
         ServerPlayerEntity player = (ServerPlayerEntity)cmdContext.getSource().getEntity();
         String homeName = "";
 
-        if(Homes.delHome(player.getUniqueID(), homeName))
+        if(Homes.deleteHome(player.getUniqueID(), homeName) != null)
             sendMessage(cmdContext, "Home deleted!");
         else
             sendMessage(cmdContext, "Did not have a default home to delete.");
@@ -305,10 +308,10 @@ public class HomeCommandsHandler
         ServerPlayerEntity player = (ServerPlayerEntity)cmdContext.getSource().getEntity();
         String homeName = StringArgumentType.getString(cmdContext, "home name");
 
-        if(Homes.delHome(player.getUniqueID(), homeName))
+        if(Homes.deleteHome(player.getUniqueID(), homeName) != null)
             sendMessage(cmdContext, "Home \"" + homeName + "\" deleted!");
         else
-            sendMessage(cmdContext, "Did not have a default home to delete.");
+            sendMessage(cmdContext, "Did not have a home by the name " + homeName +" to delete.");
 
         return 1;
     }
@@ -322,17 +325,16 @@ public class HomeCommandsHandler
         }
 
         ServerPlayerEntity player = (ServerPlayerEntity)cmdContext.getSource().getEntity();
-        UUID playerId = player.getUniqueID();
-        String worldId = getWorldId(player.getServerWorld());
-        Homes.HomeLocation location = new Homes.HomeLocation(worldId,
-                                                             (int)player.getPosX(),
-                                                             (int)player.getPosY(),
-                                                             (int)player.getPosZ(),
-                                                             (int)player.getPitchYaw().x);
 
-        // TO DO: Check homes allowed, homes allowed in the world, and homes allowed in any zones.
+        try
+        { Homes.requestSetHome(player, homeName); }
+        catch(MissingPermissionException e)
+        { sendMessage(cmdContext, "You do not have permission to set a home there."); }
+        catch(Homes.WorldHomeCapReachedException e)
+        { sendMessage(cmdContext, "You cannot set any more homes in the world " + e.getWorldId()); }
+        catch(Homes.ZoneHomeCapReachedException e)
+        { sendMessage(cmdContext, "You cannot set any more homes in the zone " + e.getZoneName()); }
 
-        Homes.setHome(player.getUniqueID(), homeName, location);
         return 1;
     }
 

@@ -19,6 +19,8 @@ public class NintiHomes
     public static final String PERMISSION_HOMES_TP              = "ninti.homes.personal.tp";
     public static final String PERMISSION_HOMES_TP_TOWORLD      = "ninti.homes.personal.tp.toworld";
     public static final String PERMISSION_HOMES_TP_TOZONE       = "ninti.homes.personal.tp.tozone";
+    public static final String PERMISSION_HOMES_TP_FROMWORLD    = "ninti.homes.personal.tp.fromworld";
+    public static final String PERMISSION_HOMES_TP_FROMZONE     = "ninti.homes.personal.tp.fromzone";
     public static final String PERMISSION_HOMES_LOCATE          = "ninti.homes.personal.locate";
     public static final String PERMISSION_HOMES_ADMIN           = "ninti.homes.admin";
     public static final String PERMISSION_HOMES_ADMIN_READ      = "ninti.homes.admin.read";
