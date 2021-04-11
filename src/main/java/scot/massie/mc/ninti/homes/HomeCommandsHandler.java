@@ -17,6 +17,7 @@ import scot.massie.mc.ninti.core.utilclasses.EntityLocation;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static net.minecraft.command.Commands.*;
@@ -115,6 +116,8 @@ public class HomeCommandsHandler
         return builder.buildFuture();
     };
 
+    private static final Predicate<CommandSource> srcIsPlayer = src -> src.getEntity() instanceof ServerPlayerEntity;
+
     private static boolean hasPerm(CommandSource src, String... perms)
     { return Permissions.commandSourceHasPermission(src, perms); }
 
@@ -132,6 +135,7 @@ public class HomeCommandsHandler
     public static final LiteralArgumentBuilder<CommandSource> homeCommand
             = literal("home")
                     .requires(src -> hasAnyPermUnder(src, NintiHomes.PERMISSION_HOMES_TP))
+                    .requires(srcIsPlayer)
                     .then(argument("home name", StringArgumentType.word())
                             .suggests(homesPlayerHasSuggestionProvider)
                             .executes(HomeCommandsHandler::cmdHome_specified))
@@ -140,6 +144,7 @@ public class HomeCommandsHandler
     public static final LiteralArgumentBuilder<CommandSource> sethomeCommand
             = literal("sethome")
                     .requires(src -> hasAnyPermUnder(src, NintiHomes.PERMISSION_HOMES_ADD))
+                    .requires(srcIsPlayer)
                     .then(argument("home name", StringArgumentType.word())
                             .executes(HomeCommandsHandler::cmdSethome_specified))
                     .executes(HomeCommandsHandler::cmdSethome_default);
@@ -155,6 +160,7 @@ public class HomeCommandsHandler
     public static final LiteralArgumentBuilder<CommandSource> gettphomecostCommand
             = literal("gettphomecost")
                     .requires(src -> hasAnyPermUnder(src, NintiHomes.PERMISSION_HOMES_TP))
+                    .requires(srcIsPlayer)
                     .then(argument("home name", StringArgumentType.word())
                             .suggests(homesPlayerHasSuggestionProvider)
                             .executes(HomeCommandsHandler::cmdGettphomecost_specified))
@@ -162,6 +168,7 @@ public class HomeCommandsHandler
 
     public static final LiteralArgumentBuilder<CommandSource> listhomesCommand
             = literal("listhomes")
+                      .requires(srcIsPlayer)
                       .executes(HomeCommandsHandler::cmdListhomes);
 
     public static final LiteralArgumentBuilder<CommandSource> homesCommand
@@ -212,12 +219,6 @@ public class HomeCommandsHandler
 
     private static int cmdHome_default(CommandContext<CommandSource> cmdContext)
     {
-        if(!(cmdContext.getSource().getEntity() instanceof ServerPlayerEntity))
-        {
-            sendMessage(cmdContext, "Can only TP players home.");
-            return 1;
-        }
-
         ServerPlayerEntity player = (ServerPlayerEntity)cmdContext.getSource().getEntity();
         String homeName = "";
 
@@ -246,12 +247,6 @@ public class HomeCommandsHandler
 
     private static int cmdHome_specified(CommandContext<CommandSource> cmdContext)
     {
-        if(!(cmdContext.getSource().getEntity() instanceof ServerPlayerEntity))
-        {
-            sendMessage(cmdContext, "Can only TP players home.");
-            return 1;
-        }
-
         ServerPlayerEntity player = (ServerPlayerEntity)cmdContext.getSource().getEntity();
         String homeName = StringArgumentType.getString(cmdContext, "home name");
 
@@ -280,15 +275,10 @@ public class HomeCommandsHandler
 
     private static int cmdDelhome_default(CommandContext<CommandSource> cmdContext)
     {
-        if(!(cmdContext.getSource().getEntity() instanceof ServerPlayerEntity))
-        {
-            sendMessage(cmdContext, "Only players can use /delhome.");
-            return 1;
-        }
-
         ServerPlayerEntity player = (ServerPlayerEntity)cmdContext.getSource().getEntity();
         String homeName = "";
 
+        assert player != null;
         if(Homes.deleteHome(player.getUniqueID(), homeName) != null)
             sendMessage(cmdContext, "Home deleted!");
         else
@@ -299,15 +289,10 @@ public class HomeCommandsHandler
 
     private static int cmdDelhome_specified(CommandContext<CommandSource> cmdContext)
     {
-        if(!(cmdContext.getSource().getEntity() instanceof ServerPlayerEntity))
-        {
-            sendMessage(cmdContext, "Only players can use /delhome.");
-            return 1;
-        }
-
         ServerPlayerEntity player = (ServerPlayerEntity)cmdContext.getSource().getEntity();
         String homeName = StringArgumentType.getString(cmdContext, "home name");
 
+        assert player != null;
         if(Homes.deleteHome(player.getUniqueID(), homeName) != null)
             sendMessage(cmdContext, "Home \"" + homeName + "\" deleted!");
         else
@@ -318,13 +303,8 @@ public class HomeCommandsHandler
 
     private static int cmdSethome(CommandContext<CommandSource> cmdContext, String homeName)
     {
-        if(!(cmdContext.getSource().getEntity() instanceof ServerPlayerEntity))
-        {
-            sendMessage(cmdContext, "Only players can use /sethome.");
-            return 1;
-        }
-
         ServerPlayerEntity player = (ServerPlayerEntity)cmdContext.getSource().getEntity();
+        assert player != null;
 
         try
         { Homes.requestSetHome(player, homeName); }
