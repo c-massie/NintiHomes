@@ -14,9 +14,11 @@ import scot.massie.mc.ninti.core.exceptions.MissingPermissionException;
 import scot.massie.mc.ninti.core.exceptions.NoSuchWorldException;
 import scot.massie.mc.ninti.core.utilclasses.EntityLocation;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -290,9 +292,9 @@ public class HomeCommandsHandler
     private static int cmdDelhome_specified(CommandContext<CommandSource> cmdContext)
     {
         ServerPlayerEntity player = (ServerPlayerEntity)cmdContext.getSource().getEntity();
+        assert player != null;
         String homeName = StringArgumentType.getString(cmdContext, "home name");
 
-        assert player != null;
         if(Homes.deleteHome(player.getUniqueID(), homeName) != null)
             sendMessage(cmdContext, "Home \"" + homeName + "\" deleted!");
         else
@@ -326,12 +328,59 @@ public class HomeCommandsHandler
 
     private static int cmdGettphomecost_default(CommandContext<CommandSource> cmdContext)
     {
-        throw new UnsupportedOperationException("Not implemented yet");
+        ServerPlayerEntity player = (ServerPlayerEntity)cmdContext.getSource().getEntity();
+        assert player != null;
+
+        try
+        {
+            Map<String, Double> costToTp = Homes.getCostToTp(player, "");
+            String message = "Cost to teleport to home:";
+
+            for(Map.Entry<String, Double> entry : costToTp.entrySet()
+                                                          .stream()
+                                                          .sorted(Map.Entry.comparingByKey())
+                                                          .collect(Collectors.toList()))
+            { message += "\n - " + entry.getKey() + ": " + entry.getValue(); }
+
+            sendMessage(cmdContext, message);
+        }
+        catch(Homes.NoSuchHomeException e)
+        { sendMessage(cmdContext, "Did not have a default home to get the cost to teleport to."); }
+        catch(NoSuchWorldException e)
+        { sendMessage(cmdContext, "The default home's world does not exist: " + e.getWorldId()); }
+        catch(MissingPermissionException e)
+        { sendMessage(cmdContext, "You do not have permission to teleport to that home."); }
+
+        return 1;
     }
 
     private static int cmdGettphomecost_specified(CommandContext<CommandSource> cmdContext)
     {
-        throw new UnsupportedOperationException("Not implemented yet");
+        ServerPlayerEntity player = (ServerPlayerEntity)cmdContext.getSource().getEntity();
+        assert player != null;
+        String homeName = StringArgumentType.getString(cmdContext, "home name");
+
+        try
+        {
+            Map<String, Double> costToTp = Homes.getCostToTp(player, "");
+            String message = "Cost to teleport to the home " + homeName + ":";
+
+            for(Map.Entry<String, Double> entry : costToTp.entrySet()
+                                                          .stream()
+                                                          .sorted(Map.Entry.comparingByKey())
+                                                          .collect(Collectors.toList()))
+            { message += "\n - " + entry.getKey() + ": " + entry.getValue(); }
+
+            sendMessage(cmdContext, message);
+        }
+        catch(Homes.NoSuchHomeException e)
+        { sendMessage(cmdContext, "Did not have a home by the name " + homeName + " to get the cost to teleport to."); }
+        catch(NoSuchWorldException e)
+        { sendMessage(cmdContext, "That home's (" + homeName + ") world does not exist: " + e.getWorldId()); }
+        catch(MissingPermissionException e)
+        { sendMessage(cmdContext, "You do not have permission to teleport to the home " + homeName); }
+
+        return 1;
     }
 
     private static int cmdListhomes(CommandContext<CommandSource> cmdContext)
