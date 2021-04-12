@@ -236,36 +236,6 @@ public final class Homes
 
     private static final Map<UUID, PlayerHomesRecord> records = new HashMap<>();
 
-    /*
-
-    hasHomes(UUID playerId)
-    getHomes(UUID playerId)
-
-    countHomes(UUID playerId)
-    countHomesInZone(UUID playerId, String zoneName)
-    countHomesInWorld(UUID playerId, String worldId)
-
-    getPlayersWithHomes()
-
-    setHome(UUID playerId, String homeName, HomeLocation location)
-    requestSetHome(UUID playerId, String homeName, HomeLocation location)
-    requestSetHome(ServerPlayerEntity player, String homeName)
-    deleteHome(UUID playerId, String homeName)
-    clear()
-
-    getCostToTp(ServerPlayerEntity player, String homeName)
-    getCostToTp(ServerPlayerEntity player, HomeLocation destination, PermissionStatus permStatus, double distance)
-    requestCostToTp(ServerPlayerEntity player, String homeName)
-
-    tpPlayerToHome(ServerPlayerEntity player, String homeName)
-    tpPlayerToHome(ServerPlayerEntity player, UUID homeOwnerId, String homeName)
-    requesPlayerTpToHome(ServerPlayerEntity player, String homeName)
-
-    save()
-    load()
-
-     */
-
     //region accessors
     public static boolean hasHomes(UUID playerId)
     {
@@ -528,6 +498,7 @@ public final class Homes
     }
     //endregion
 
+    //region teleportation
     public static void tpPlayerToHome(ServerPlayerEntity player, String homeName) throws NoSuchHomeException
     { tpPlayerToHome(player, player.getUniqueID(), homeName); }
 

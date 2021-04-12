@@ -385,7 +385,23 @@ public class HomeCommandsHandler
 
     private static int cmdListhomes(CommandContext<CommandSource> cmdContext)
     {
-        throw new UnsupportedOperationException("Not implemented yet");
+        ServerPlayerEntity player = (ServerPlayerEntity)cmdContext.getSource().getEntity();
+        assert player != null;
+        Map<String, EntityLocation> homes = Homes.getHomes(player.getUniqueID());
+
+        if(homes.isEmpty())
+        {
+            sendMessage(cmdContext, "You do not have any homes.");
+            return 1;
+        }
+
+        String message = "Homes: ";
+
+        for(String homeName : homes.keySet().stream().sorted().collect(Collectors.toList()))
+            message += "\n - " + homeName;
+
+        sendMessage(cmdContext, message);
+        return 1;
     }
 
     private static int cmdHomes_delete_one(CommandContext<CommandSource> cmdContext)
