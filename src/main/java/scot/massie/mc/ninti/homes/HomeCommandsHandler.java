@@ -9,6 +9,7 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraftforge.common.UsernameCache;
 import scot.massie.mc.ninti.core.Permissions;
+import scot.massie.mc.ninti.core.PluginUtils;
 import scot.massie.mc.ninti.core.currencies.Currencies;
 import scot.massie.mc.ninti.core.exceptions.MissingPermissionException;
 import scot.massie.mc.ninti.core.exceptions.NoSuchWorldException;
@@ -183,10 +184,13 @@ public class HomeCommandsHandler
                                     .executes(HomeCommandsHandler::cmdHomes_list_user))
                             .executes(HomeCommandsHandler::cmdHomes_list_all))
                     .then(literal("create")
+                            .requires(srcIsPlayer)
                             .requires(src -> hasPerm(src, NintiHomes.PERMISSION_HOMES_ADMIN_ADD))
                             .then(argument("username", StringArgumentType.word())
-                                    .suggests(playersWithHomesSuggestionProvider)
-                                    .executes(HomeCommandsHandler::cmdHomes_create_here)))
+                                    .suggests(playersOnlineSuggestionProvider)
+                                    .then(argument("home name", StringArgumentType.word())
+                                            .executes(HomeCommandsHandler::cmdHomes_create_here_named))
+                                    .executes(HomeCommandsHandler::cmdHomes_create_here_default)))
                     .then(literal("delete")
                             .requires(src -> hasPerm(src, NintiHomes.PERMISSION_HOMES_ADMIN_REMOVE))
                             .then(argument("username", StringArgumentType.word())
@@ -205,7 +209,7 @@ public class HomeCommandsHandler
                     .then(literal("tp")
                             .requires(src -> hasPerm(src, NintiHomes.PERMISSION_HOMES_ADMIN_TP_THEM))
                             .then(argument("username", StringArgumentType.word())
-                                    .suggests(playersWithHomesSuggestionProvider)
+                                    .suggests(playersOnlineSuggestionProvider)
                                     .then(argument("home name", StringArgumentType.word())
                                             .suggests(homesAnotherPlayerHasSuggestionProvider)
                                             .executes(HomeCommandsHandler::cmdHomes_tp))))
@@ -404,19 +408,137 @@ public class HomeCommandsHandler
         return 1;
     }
 
+    private static int cmdHomes_list_all(CommandContext<CommandSource> cmdContext)
+    {
+        String msg = "Homes:";
+
+        for(Map.Entry<UUID, Map<String, EntityLocation>> e : Homes.getHomes()
+                                                                  .entrySet()
+                                                                  .stream()
+                                                                  .sorted(Map.Entry.comparingByKey(Comparators.playerIdByName))
+                                                                  .collect(Collectors.toList()))
+        {
+            String name = UsernameCache.getLastKnownUsername(e.getKey());
+            msg += "\n - " + (name != null ? name : e.getKey());
+
+            for(Map.Entry<String, EntityLocation> e2 : e.getValue()
+                                                        .entrySet()
+                                                        .stream()
+                                                        .sorted(Map.Entry.comparingByKey())
+                                                        .collect(Collectors.toList()))
+            {
+                EntityLocation loc = e2.getValue();
+                int x = (int)loc.getX();
+                int y = (int)loc.getY();
+                int z = (int)loc.getZ();
+                msg += "\n     - " + e2.getKey() + ": " + x + ", " + y + ", " + z + " in world: " + loc.getWorldId();
+            }
+        }
+
+        sendMessage(cmdContext, msg);
+        return 1;
+    }
+
+    private static int cmdHomes_list_user(CommandContext<CommandSource> cmdContext)
+    {
+        String username = StringArgumentType.getString(cmdContext, "username");
+        UUID playerId = getLastKnownUUIDOfPlayer(username);
+
+        if(playerId == null)
+        {
+            sendMessage(cmdContext, "No known player by the name " + username);
+            return 1;
+        }
+
+        List<Map.Entry<String, EntityLocation>> playerHomes = Homes.getHomes(playerId)
+                                                                   .entrySet()
+                                                                   .stream()
+                                                                   .sorted(Map.Entry.comparingByKey())
+                                                                   .collect(Collectors.toList());
+
+        if(playerHomes.isEmpty())
+        {
+            sendMessage(cmdContext, "The player " + username + " has no homes.");
+            return 1;
+        }
+
+        String msg = "Homes of " + username + ":";
+
+        for(Map.Entry<String, EntityLocation> e : playerHomes)
+        {
+            EntityLocation loc = e.getValue();
+            int x = (int)loc.getX();
+            int y = (int)loc.getY();
+            int z = (int)loc.getZ();
+            msg += "\n - " + e.getKey() + ": " + x + ", " + y + ", " + z + " in world: " + loc.getWorldId();
+        }
+
+        sendMessage(cmdContext, msg);
+        return 1;
+    }
+
+    private static int cmdHomes_create_here(CommandContext<CommandSource> cmdContext, String homeName)
+    {
+        ServerPlayerEntity player = (ServerPlayerEntity)cmdContext.getSource().getEntity();
+        assert player != null;
+        String usernameCreatingFor = StringArgumentType.getString(cmdContext, "username");
+        UUID playerIdCreatingFor = getLastKnownUUIDOfPlayer(usernameCreatingFor);
+
+        if(playerIdCreatingFor == null)
+        {
+            sendMessage(cmdContext, "No known player by the name " + usernameCreatingFor);
+            return 1;
+        }
+
+        Homes.setHome(playerIdCreatingFor, homeName, new EntityLocation(player));
+        sendMessage(cmdContext, "Home created!");
+        return 1;
+    }
+
+    private static int cmdHomes_create_here_named(CommandContext<CommandSource> cmdContext)
+    { return cmdHomes_create_here(cmdContext, StringArgumentType.getString(cmdContext, "home name")); }
+
+    private static int cmdHomes_create_here_default(CommandContext<CommandSource> cmdContext)
+    { return cmdHomes_create_here(cmdContext, ""); }
+
     private static int cmdHomes_delete_one(CommandContext<CommandSource> cmdContext)
     {
-        throw new UnsupportedOperationException("Not implemented yet");
+        String username = StringArgumentType.getString(cmdContext, "username");
+        UUID playerId = getLastKnownUUIDOfPlayer(username);
+
+        if(playerId == null)
+        {
+            sendMessage(cmdContext, "No known player by the name " + username);
+            return 1;
+        }
+
+        String homeName = StringArgumentType.getString(cmdContext, "home name");
+
+        if(Homes.deleteHome(playerId, homeName) != null)
+            sendMessage(cmdContext, "Home deleted!");
+        else
+            sendMessage(cmdContext, "Could not find home of " + username + ": " + homeName);
+
+        return 1;
     }
 
     private static int cmdHomes_delete_all(CommandContext<CommandSource> cmdContext)
     {
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
+        String username = StringArgumentType.getString(cmdContext, "username");
+        UUID playerId = getLastKnownUUIDOfPlayer(username);
 
-    private static int cmdHomes_create_here(CommandContext<CommandSource> cmdContext)
-    {
-        throw new UnsupportedOperationException("Not implemented yet");
+        if(playerId == null)
+        {
+            sendMessage(cmdContext, "No known player by the name " + username);
+            return 1;
+        }
+
+        if(Homes.clear(playerId).isEmpty())
+            sendMessage(cmdContext, "Player had no homes to delete.");
+        else
+            sendMessage(cmdContext, "All homes of player deleted.");
+
+        return 1;
     }
 
     private static int cmdHomes_tpme(CommandContext<CommandSource> cmdContext)
@@ -430,16 +552,6 @@ public class HomeCommandsHandler
     }
 
     private static int cmdHomes_tptoother(CommandContext<CommandSource> cmdContext)
-    {
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
-
-    private static int cmdHomes_list_all(CommandContext<CommandSource> cmdContext)
-    {
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
-
-    private static int cmdHomes_list_user(CommandContext<CommandSource> cmdContext)
     {
         throw new UnsupportedOperationException("Not implemented yet");
     }

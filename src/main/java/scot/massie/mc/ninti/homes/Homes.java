@@ -1,5 +1,6 @@
 package scot.massie.mc.ninti.homes;
 
+import com.mojang.authlib.GameProfile;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraftforge.common.UsernameCache;
@@ -496,6 +497,25 @@ public final class Homes
         synchronized(records)
         { records.clear(); }
     }
+
+    public static Map<String, EntityLocation> clear(UUID playerId)
+    {
+        PlayerHomesRecord record;
+
+        synchronized(records)
+        { record = records.remove(playerId); }
+
+        if(record == null)
+            return Collections.emptyMap();
+
+        return record.getHomes();
+    }
+
+    public static Map<String, EntityLocation> clear(PlayerEntity player)
+    { return clear(player.getUniqueID()); }
+
+    public static Map<String, EntityLocation> clear(GameProfile player)
+    { return clear(player.getId()); }
     //endregion
 
     //region teleportation
