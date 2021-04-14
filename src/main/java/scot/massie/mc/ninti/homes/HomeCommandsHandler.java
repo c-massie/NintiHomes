@@ -51,6 +51,14 @@ public class HomeCommandsHandler
 
      */
 
+    /*
+
+    TO DO:
+     - Add /homes tp|tpme|tptoother variations for the default home.
+     - Store the default home in a variable/constant.
+
+     */
+
     private static final String noSuggestionsSuggestion = "(no suggestions)";
 
     private static final SuggestionProvider<CommandSource> playersOnlineSuggestionProvider
@@ -200,6 +208,7 @@ public class HomeCommandsHandler
                                             .executes(HomeCommandsHandler::cmdHomes_delete_one))
                                     .executes(HomeCommandsHandler::cmdHomes_delete_all)))
                     .then(literal("tpme")
+                            .requires(srcIsPlayer)
                             .requires(src -> hasPerm(src, NintiHomes.PERMISSION_HOMES_ADMIN_TP_ME))
                             .then(argument("username", StringArgumentType.word())
                                     .suggests(playersWithHomesSuggestionProvider)
@@ -543,16 +552,91 @@ public class HomeCommandsHandler
 
     private static int cmdHomes_tpme(CommandContext<CommandSource> cmdContext)
     {
-        throw new UnsupportedOperationException("Not implemented yet");
+        String homeOwningPlayerName = StringArgumentType.getString(cmdContext, "username");
+        UUID homeOwningPlayerId = getLastKnownUUIDOfPlayer(homeOwningPlayerName);
+
+        if(homeOwningPlayerId == null)
+        {
+            sendMessage(cmdContext, "No known player by the name " + homeOwningPlayerName);
+            return 1;
+        }
+
+        String homeName = StringArgumentType.getString(cmdContext, "home name");
+        ServerPlayerEntity player = (ServerPlayerEntity)cmdContext.getSource().getEntity();
+        assert player != null;
+
+        try
+        { Homes.tpPlayerToHome(player, homeOwningPlayerId, homeName); }
+        catch(Homes.NoSuchHomeException e)
+        { sendMessage(cmdContext, "That player does not have a home by the name: " + e.getHomeName()); }
+
+        return 1;
     }
 
     private static int cmdHomes_tp(CommandContext<CommandSource> cmdContext)
     {
-        throw new UnsupportedOperationException("Not implemented yet");
+        String playerName = StringArgumentType.getString(cmdContext, "username");
+        UUID playerId = getLastKnownUUIDOfPlayer(playerName);
+
+        if(playerId == null)
+        {
+            sendMessage(cmdContext, "No known player by the name " + playerName);
+            return 1;
+        }
+
+        ServerPlayerEntity player = getOnlinePlayer(playerId);
+
+        if(player == null)
+        {
+            sendMessage(cmdContext, "That player is not online right now.");
+            return 1;
+        }
+
+        String homeName = StringArgumentType.getString(cmdContext, "home name");
+
+        try
+        { Homes.tpPlayerToHome(player, homeName); }
+        catch(Homes.NoSuchHomeException e)
+        { sendMessage(cmdContext, "That player does not have a home by the name: " + e.getHomeName()); }
+
+        return 1;
     }
 
     private static int cmdHomes_tptoother(CommandContext<CommandSource> cmdContext)
     {
-        throw new UnsupportedOperationException("Not implemented yet");
+        String beingTpedPlayerName = StringArgumentType.getString(cmdContext, "username to tp");
+        UUID beingTpedPlayerId = getLastKnownUUIDOfPlayer(beingTpedPlayerName);
+
+        if(beingTpedPlayerId == null)
+        {
+            sendMessage(cmdContext, "No known player by the name " + beingTpedPlayerName);
+            return 1;
+        }
+
+        ServerPlayerEntity beingTpedPlayer = getOnlinePlayer(beingTpedPlayerId);
+
+        if(beingTpedPlayer == null)
+        {
+            sendMessage(cmdContext, beingTpedPlayerName + " is not online right now.");
+            return 1;
+        }
+
+        String homeOwningPlayerName = StringArgumentType.getString(cmdContext, "username");
+        UUID homeOwningPlayerId = getLastKnownUUIDOfPlayer(homeOwningPlayerName);
+
+        if(homeOwningPlayerId == null)
+        {
+            sendMessage(cmdContext, "No known player by the name " + homeOwningPlayerName);
+            return 1;
+        }
+
+        String homeName = StringArgumentType.getString(cmdContext, "home name");
+
+        try
+        { Homes.tpPlayerToHome(beingTpedPlayer, homeName); }
+        catch(Homes.NoSuchHomeException e)
+        { sendMessage(cmdContext, homeOwningPlayerName + " does not have a home by the name: " + e.getHomeName()); }
+
+        return 1;
     }
 }
