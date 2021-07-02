@@ -5,7 +5,7 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraftforge.common.UsernameCache;
 import scot.massie.lib.collections.maps.MapUtils;
-import scot.massie.lib.maths.EquationEvaluation;
+import scot.massie.lib.maths.Equation;
 import scot.massie.lib.permissions.PermissionStatus;
 import scot.massie.mc.ninti.core.Permissions;
 import scot.massie.mc.ninti.core.PluginUtils;
@@ -372,9 +372,12 @@ public final class Homes
             String[] lineParts = line.split(":", 2);
 
             String currencyName = lineParts.length == 1 ? "xp" : lineParts[0].trim();
-            double amount = new EquationEvaluation(lineParts[lineParts.length == 1 ? 0 : 1])
+
+            double amount = new Equation.Builder(true)
+                                    .withComparativeOperators()
                                     .withVariable("distance", distance)
                                     .withVariable("transworlddiff", transworldDifferentiator)
+                                    .build(lineParts[lineParts.length == 1 ? 0 : 1])
                                     .evaluate();
 
             Double existingAmount = result.get(currencyName);
