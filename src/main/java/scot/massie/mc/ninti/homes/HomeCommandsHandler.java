@@ -424,7 +424,7 @@ public class HomeCommandsHandler
         for(Map.Entry<UUID, Map<String, EntityLocation>> e : Homes.getHomes()
                                                                   .entrySet()
                                                                   .stream()
-                                                                  .sorted(Map.Entry.comparingByKey(Comparators.playerIdByName))
+                                                                  .sorted(Map.Entry.comparingByKey(Comparators.PLAYER_ID_BY_NAME))
                                                                   .collect(Collectors.toList()))
         {
             String name = UsernameCache.getLastKnownUsername(e.getKey());
