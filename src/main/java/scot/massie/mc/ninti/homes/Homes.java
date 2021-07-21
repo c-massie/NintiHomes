@@ -25,9 +25,9 @@ import java.util.UUID;
 
 public final class Homes
 {
-    static final Map<UUID, PlayerHomesList> homesLists = new HashMap<>();
-    static final Path saveFileLocation = NintiCore.DATA_FOLDER.resolve("homes.csv");
-    static final Path saveFileBackupLocation = NintiCore.DATA_FOLDER.resolve("homes_backup.csv");
+    private static final Map<UUID, PlayerHomesList> homesLists = new HashMap<>();
+    private static final Path saveFileLocation = NintiCore.DATA_FOLDER.resolve("homes.csv");
+    private static final Path saveFileBackupLocation = NintiCore.DATA_FOLDER.resolve("homes_backup.csv");
 
     private Homes()
     {}
@@ -43,6 +43,39 @@ public final class Homes
 
     public static PlayerHomesList getFor(GameProfile player)
     { return getFor(player.getId()); }
+
+    public static PlayerHomesList getForIfPresent(UUID playerId)
+    {
+        synchronized(homesLists)
+        { return homesLists.get(playerId); }
+    }
+
+    public static PlayerHomesList getForIfPresent(PlayerEntity player)
+    { return getForIfPresent(player.getUniqueID()); }
+
+    public static PlayerHomesList getForIfPresent(GameProfile player)
+    { return getForIfPresent(player.getId()); }
+
+    public static boolean hasAny(UUID playerId)
+    {
+        synchronized(homesLists)
+        {
+            PlayerHomesList phl = homesLists.get(playerId);
+            return (phl != null) && (!phl.isEmpty());
+        }
+    }
+
+    public static boolean hasAny(PlayerEntity player)
+    { return hasAny(player.getUniqueID()); }
+
+    public static boolean hasAny(GameProfile player)
+    { return hasAny(player.getId()); }
+
+    public static List<UUID> getPlayersWithHomes()
+    {
+        synchronized(homesLists)
+        { return new ArrayList<>(homesLists.keySet()); }
+    }
 
     public static void save()
     {

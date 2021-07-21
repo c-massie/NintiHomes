@@ -6,9 +6,9 @@ import java.util.UUID;
 
 import static scot.massie.mc.ninti.homes.NintiHomesStaticUtilMethods.*;
 
-public class WorldHomeCapReachedException extends Homes.HomeCapReachedException
+public class WorldHomeCapReachedException extends HomeCapReachedException
 {
-    protected WorldHomeCapReachedException(UUID playerId, int homesAllowed, String worldId)
+    public WorldHomeCapReachedException(UUID playerId, int homesAllowed, String worldId)
     {
         super(playerId, homesAllowed, getHowToReferToPlayer(playerId) + " has reached the maximum number of homes "
                                       + "they're allowed (" + homesAllowed + ") in the world " + worldId);

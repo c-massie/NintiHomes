@@ -6,12 +6,16 @@ import net.minecraftforge.common.UsernameCache;
 import scot.massie.lib.collections.maps.DoubleMap;
 import scot.massie.lib.collections.maps.MapUtils;
 import scot.massie.lib.maths.Equation;
+import scot.massie.lib.permissions.PermissionStatus;
 import scot.massie.mc.ninti.core.Permissions;
 import scot.massie.mc.ninti.core.PluginUtils;
 import scot.massie.mc.ninti.core.currencies.Currencies;
+import scot.massie.mc.ninti.core.exceptions.NoSuchWorldException;
+import scot.massie.mc.ninti.core.exceptions.PlayerMissingPermissionException;
 import scot.massie.mc.ninti.core.utilclasses.EntityLocation;
 import scot.massie.mc.ninti.core.zones.Zone;
 import scot.massie.mc.ninti.core.zones.Zones;
+import scot.massie.mc.ninti.homes.Exceptions.CouldNotAffordToTpHomeException;
 
 import static scot.massie.lib.utils.StringUtils.*;
 
@@ -48,6 +52,18 @@ public class PlayerHome
 
     public String getPlayerName()
     { return UsernameCache.getLastKnownUsername(playerId); }
+
+    public void assertPlayerHasPermissionToTpHere() throws PlayerMissingPermissionException
+    {
+        PlayerEntity onlineOwner = getPlayer();
+
+        if(onlineOwner != null)
+        {
+            EntityLocation playerLocation = new EntityLocation(onlineOwner);
+            String fromWorldPermission = NintiHomes.PERMISSION_HOMES_TP_FROMWORLD + "." + playerLocation.getWorldId();
+            Permissions.assertPlayerHasPermission(playerId, fromWorldPermission);
+        }
+    }
 
     public boolean playerHasPermissionToTpHere()
     {
@@ -86,7 +102,19 @@ public class PlayerHome
         return true;
     }
 
+    public Map<String, Double> requestCostsToTpHere() throws PlayerMissingPermissionException
+    { return getCostsToTpHere(true); }
+
     public Map<String, Double> getCostsToTpHere()
+    {
+        try
+        { return getCostsToTpHere(false); }
+        catch(PlayerMissingPermissionException e)
+        { throw new RuntimeException("This should never occur.", e); }
+    }
+
+    private Map<String, Double> getCostsToTpHere(boolean checkPlayerHasPermission)
+            throws PlayerMissingPermissionException
     {
         PlayerEntity onlineOwner = getPlayer();
         Collection<Map<String, Double>> resultParts = new ArrayList<>();
@@ -95,35 +123,53 @@ public class PlayerHome
         {
             EntityLocation playerLocation = new EntityLocation(onlineOwner);
             String fromWorldPermission = NintiHomes.PERMISSION_HOMES_TP_FROMWORLD + "." + playerLocation.getWorldId();
-            resultParts.add(getTpCostsFromPerm(fromWorldPermission));
+            resultParts.add(getTpCostsFromPerm(Permissions.getPlayerPermissionStatus(playerId, fromWorldPermission),
+                                               checkPlayerHasPermission));
 
             for(Zone z : Zones.getZonesAt(playerLocation))
             {
                 String fromZonePermission = NintiHomes.PERMISSION_HOMES_TP_FROMZONE + "." + z.getName();
-                resultParts.add(getTpCostsFromPerm(fromWorldPermission));
+                resultParts.add(getTpCostsFromPerm(Permissions.getPlayerPermissionStatus(playerId, fromZonePermission),
+                                                   checkPlayerHasPermission));
             }
         }
 
         String toWorldPermission = NintiHomes.PERMISSION_HOMES_TP_TOWORLD + "." + location.getWorldId();
-        resultParts.add(getTpCostsFromPerm(toWorldPermission));
+        resultParts.add(getTpCostsFromPerm(Permissions.getPlayerPermissionStatus(playerId, toWorldPermission),
+                                           checkPlayerHasPermission));
 
         for(Zone z : Zones.getZonesAt(location))
         {
             String toZonePermission = NintiHomes.PERMISSION_HOMES_TP_TOZONE + "." + z.getName();
-            resultParts.add(getTpCostsFromPerm(toWorldPermission));
+            resultParts.add(getTpCostsFromPerm(Permissions.getPlayerPermissionStatus(playerId, toZonePermission),
+                                               checkPlayerHasPermission));
         }
 
         return MapUtils.sumMatchingDoubleValues(resultParts);
     }
 
-    public Map<String, Double> getTpCostsFromPerm(String permission)
-    {
-        String arg = Permissions.getPlayerPermissionArg(playerId, permission);
+    public Map<String, Double> requestTpCostsFromPerm(PermissionStatus permStatus)
+            throws PlayerMissingPermissionException
+    { return getTpCostsFromPerm(permStatus, true); }
 
-        if(arg == null)
+    public Map<String, Double> getTpCostsFromPerm(PermissionStatus permStatus)
+    {
+        try
+        { return getTpCostsFromPerm(permStatus, false); }
+        catch(PlayerMissingPermissionException e)
+        { throw new RuntimeException("This should never occur.", e); }
+    }
+
+    private Map<String, Double> getTpCostsFromPerm(PermissionStatus permStatus, boolean checkPlayerHasPermission)
+            throws PlayerMissingPermissionException
+    {
+        if(checkPlayerHasPermission && !permStatus.hasPermission())
+            throw new PlayerMissingPermissionException(playerId, permStatus.getPermission());
+
+        if(permStatus.getPermissionArg() == null)
             return new HashMap<>();
 
-        Map<String, String> tpCostEquationsAsStrings = splitColonSeparatedValuePairs(arg);
+        Map<String, String> tpCostEquationsAsStrings = splitColonSeparatedValuePairs(permStatus.getPermissionArg());
         DoubleMap<String> tpCosts = new DoubleMap<>();
 
         PlayerEntity onlineOwner = getPlayer();
@@ -163,7 +209,17 @@ public class PlayerHome
         return tpCosts;
     }
 
-    public void tpHere()
+    public void chargePlayerToTpHere()
+            throws Currencies.UnrecognisedCurrencyException, CouldNotAffordToTpHomeException
+    {
+        Map<String, Double> tpCosts = getCostsToTpHere();
+        boolean couldAfford = Currencies.chargePlayer(playerId, tpCosts);
+
+        if(!couldAfford)
+            throw new CouldNotAffordToTpHomeException(playerId, homeName, tpCosts);
+    }
+
+    public void tpHere() throws NoSuchWorldException
     {
         ServerPlayerEntity player = getPlayer();
 
@@ -181,44 +237,18 @@ public class PlayerHome
         location.tpPlayerToHere(player);
     }
 
-    public void tpHere(ServerPlayerEntity player)
+    public void tpHere(ServerPlayerEntity player) throws NoSuchWorldException
     { location.tpPlayerToHere(player); }
 
     public void requestTpHere()
+            throws NoSuchWorldException,
+                   PlayerMissingPermissionException,
+                   Currencies.UnrecognisedCurrencyException,
+                   CouldNotAffordToTpHomeException
     {
-        ServerPlayerEntity player = getPlayer();
-
-        if(!playerHasPermissionToTpHere())
-        {
-            if(player != null)
-                PluginUtils.sendMessage(player, "You do not have permission to teleport to that home.");
-
-            return;
-        }
-
-        Map<String, Double> tpCosts = getCostsToTpHere();
-        boolean couldAfford;
-
-        try
-        { couldAfford = Currencies.chargePlayer(playerId, tpCosts); }
-        catch(Currencies.UnrecognisedCurrencyException e)
-        {
-            if(player != null)
-                PluginUtils.sendMessage(player, "Could not teleport - unrecognised currency: " + e.getCurrencyName());
-
-            System.err.println("Unrecognised currency: " + e.getCurrencyName());
-            return;
-        }
-
-        if((!couldAfford) && (player != null))
-        {
-            StringBuilder msg = new StringBuilder("You cannot afford to teleport to that home. It would cost:");
-
-            for(Map.Entry<String, Double> e : tpCosts.entrySet())
-                msg.append(" - ").append(e.getKey()).append(": ").append(e.getValue());
-
-            PluginUtils.sendMessage(player, msg.toString());
-        }
+        location.assertWorldExists();
+        assertPlayerHasPermissionToTpHere();
+        chargePlayerToTpHere();
+        tpHere();
     }
 }
-
