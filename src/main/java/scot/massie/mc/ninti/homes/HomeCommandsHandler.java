@@ -8,9 +8,7 @@ import net.minecraft.command.CommandSource;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraftforge.common.UsernameCache;
-import scot.massie.lib.permissions.exceptions.MissingPermissionException;
 import scot.massie.mc.ninti.core.Permissions;
-import scot.massie.mc.ninti.core.PluginUtils;
 import scot.massie.mc.ninti.core.currencies.Currencies;
 import scot.massie.mc.ninti.core.exceptions.NoSuchWorldException;
 import scot.massie.mc.ninti.core.exceptions.PlayerMissingPermissionException;
@@ -20,11 +18,11 @@ import scot.massie.mc.ninti.homes.Exceptions.ServerHomeCapReachedException;
 import scot.massie.mc.ninti.homes.Exceptions.WorldHomeCapReachedException;
 import scot.massie.mc.ninti.homes.Exceptions.ZoneHomeCapReachedException;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -165,6 +163,7 @@ public class HomeCommandsHandler
                             .executes(HomeCommandsHandler::cmdSethome_specified))
                     .executes(HomeCommandsHandler::cmdSethome_default);
 
+    @SuppressWarnings("Convert2MethodRef") // ".requires(src -> hasAnyHomes(src))" makes more sense as a lambda.
     public static final LiteralArgumentBuilder<CommandSource> delhomeCommand
             = literal("delhome")
                     .requires(src -> hasAnyHomes(src))
@@ -210,8 +209,13 @@ public class HomeCommandsHandler
                                     .suggests(playersWithHomesSuggestionProvider)
                                     .then(argument("home name", StringArgumentType.word())
                                             .suggests(homesAnotherPlayerHasSuggestionProvider)
-                                            .executes(HomeCommandsHandler::cmdHomes_delete_one))
-                                    .executes(HomeCommandsHandler::cmdHomes_delete_all)))
+                                            .executes(HomeCommandsHandler::cmdHomes_delete_specified))
+                                    .executes(HomeCommandsHandler::cmdHomes_delete_default)))
+                    .then(literal("deleteall")
+                            .requires(src -> hasPerm(src, NintiHomes.PERMISSION_HOMES_ADMIN_REMOVE))
+                            .then(argument("username", StringArgumentType.word())
+                                    .suggests(playersWithHomesSuggestionProvider)
+                                    .executes(HomeCommandsHandler::cmdHomes_deleteall)))
                     .then(literal("tpme")
                             .requires(srcIsPlayer)
                             .requires(src -> hasPerm(src, NintiHomes.PERMISSION_HOMES_ADMIN_TP_ME))
@@ -236,6 +240,20 @@ public class HomeCommandsHandler
                                             .then(argument("home name", StringArgumentType.word())
                                                     .suggests(homesAnotherPlayerHasSuggestionProvider)
                                                     .executes(HomeCommandsHandler::cmdHomes_tptoother)))));
+
+    private static String homeToString(PlayerHome home)
+    {
+        StringBuilder sb = new StringBuilder(home.getName().isEmpty() ? "" : home.getName() + " at ");
+        EntityLocation loc = home.getLocation();
+
+        sb.append("(")
+          .append((int)loc.getX()).append(", ")
+          .append((int)loc.getY()).append(", ")
+          .append((int)loc.getZ()).append(") in ")
+          .append(loc.getWorldId()).append(".");
+
+        return sb.toString();
+    }
 
     private static int cmdHome(CommandContext<CommandSource> cmdContext, String homeName)
     {
@@ -264,16 +282,16 @@ public class HomeCommandsHandler
         { sendMessage(cmdContext, "Unrecognised currency in costs: " + e.getCurrencyName()); }
         catch(CouldNotAffordToTpHomeException e)
         {
-            String msg = "You cannot afford to teleport to that home. Required: ";
+            StringBuilder msgBuilder = new StringBuilder("You cannot afford to teleport to that home. Required: ");
 
             for(Map.Entry<String, Double> entry : e.getCosts()
                                                    .entrySet()
                                                    .stream()
                                                    .sorted(Map.Entry.comparingByKey())
                                                    .collect(Collectors.toList()))
-            { msg += "\n - " + entry.getKey() + ": " + entry.getValue(); }
+            { msgBuilder.append("\n - ").append(entry.getKey()).append(": ").append(entry.getValue()); }
 
-            sendMessage(cmdContext, msg);
+            sendMessage(cmdContext, msgBuilder.toString());
         }
 
         return 1;
@@ -393,44 +411,35 @@ public class HomeCommandsHandler
         }
 
         StringBuilder msg = new StringBuilder("Homes: ");
+        List<PlayerHome> homes = new ArrayList<>(phl.getHomes());
+        homes.sort(Comparator.comparing(PlayerHome::getName));
 
-        for(String homeName : phl.getHomeNames())
-            msg.append("\n - ").append(homeName);
+        for(PlayerHome home : homes)
+            msg.append("\n - ").append(homeToString(home));
 
         sendMessage(cmdContext, msg.toString());
         return 1;
     }
 
-    // TO DO: Continue updating HomeCommandsHandler from here.
-
     private static int cmdHomes_list_all(CommandContext<CommandSource> cmdContext)
     {
-        String msg = "Homes:";
+        StringBuilder msgBuilder = new StringBuilder("Homes:");
 
-        for(Map.Entry<UUID, Map<String, EntityLocation>> e : Homes.getHomes()
-                                                                  .entrySet()
-                                                                  .stream()
-                                                                  .sorted(Map.Entry.comparingByKey(Comparators.PLAYER_ID_BY_NAME))
-                                                                  .collect(Collectors.toList()))
+        for(PlayerHomesList phl : Homes.getAllPlayerHomeLists())
         {
-            String name = UsernameCache.getLastKnownUsername(e.getKey());
-            msg += "\n - " + (name != null ? name : e.getKey());
+            if(phl.isEmpty())
+                continue;
 
-            for(Map.Entry<String, EntityLocation> e2 : e.getValue()
-                                                        .entrySet()
-                                                        .stream()
-                                                        .sorted(Map.Entry.comparingByKey())
-                                                        .collect(Collectors.toList()))
-            {
-                EntityLocation loc = e2.getValue();
-                int x = (int)loc.getX();
-                int y = (int)loc.getY();
-                int z = (int)loc.getZ();
-                msg += "\n     - " + e2.getKey() + ": " + x + ", " + y + ", " + z + " in world: " + loc.getWorldId();
-            }
+            msgBuilder.append("\n - ").append(phl.getPlayerName());
+
+            List<PlayerHome> homes = new ArrayList<>(phl.getHomes());
+            homes.sort(Comparator.comparing(PlayerHome::getName));
+
+            for(PlayerHome home : homes)
+                msgBuilder.append("\n - - ").append(homeToString(home));
         }
 
-        sendMessage(cmdContext, msg);
+        sendMessage(cmdContext, msgBuilder.toString());
         return 1;
     }
 
@@ -445,30 +454,22 @@ public class HomeCommandsHandler
             return 1;
         }
 
-        List<Map.Entry<String, EntityLocation>> playerHomes = Homes.getHomes(playerId)
-                                                                   .entrySet()
-                                                                   .stream()
-                                                                   .sorted(Map.Entry.comparingByKey())
-                                                                   .collect(Collectors.toList());
+        PlayerHomesList phl = Homes.getForIfPresent(playerId);
 
-        if(playerHomes.isEmpty())
+        if(phl == null || phl.isEmpty())
         {
-            sendMessage(cmdContext, "The player " + username + " has no homes.");
+            sendMessage(cmdContext, username + " doesn't have any homes.");
             return 1;
         }
 
-        String msg = "Homes of " + username + ":";
+        StringBuilder msgBuilder = new StringBuilder("Homes of ").append(username).append(":");
+        ArrayList<PlayerHome> homes = new ArrayList<>(phl.getHomes());
+        homes.sort(Comparator.comparing(PlayerHome::getName));
 
-        for(Map.Entry<String, EntityLocation> e : playerHomes)
-        {
-            EntityLocation loc = e.getValue();
-            int x = (int)loc.getX();
-            int y = (int)loc.getY();
-            int z = (int)loc.getZ();
-            msg += "\n - " + e.getKey() + ": " + x + ", " + y + ", " + z + " in world: " + loc.getWorldId();
-        }
+        for(PlayerHome home : homes)
+            msgBuilder.append("\n - ").append(homeToString(home));
 
-        sendMessage(cmdContext, msg);
+        sendMessage(cmdContext, msgBuilder.toString());
         return 1;
     }
 
@@ -485,7 +486,7 @@ public class HomeCommandsHandler
             return 1;
         }
 
-        Homes.setHome(playerIdCreatingFor, homeName, new EntityLocation(player));
+        Homes.getFor(playerIdCreatingFor).setHome(homeName, new EntityLocation(player));
         sendMessage(cmdContext, "Home created!");
         return 1;
     }
@@ -496,7 +497,7 @@ public class HomeCommandsHandler
     private static int cmdHomes_create_here_default(CommandContext<CommandSource> cmdContext)
     { return cmdHomes_create_here(cmdContext, ""); }
 
-    private static int cmdHomes_delete_one(CommandContext<CommandSource> cmdContext)
+    private static int cmdHomes_delete(CommandContext<CommandSource> cmdContext, String homeName)
     {
         String username = StringArgumentType.getString(cmdContext, "username");
         UUID playerId = getLastKnownUUIDOfPlayer(username);
@@ -507,17 +508,28 @@ public class HomeCommandsHandler
             return 1;
         }
 
-        String homeName = StringArgumentType.getString(cmdContext, "home name");
+        PlayerHomesList phl = Homes.getForIfPresent(playerId);
 
-        if(Homes.deleteHome(playerId, homeName) != null)
+        if((phl != null) && (phl.deleteHome(homeName) != null))
             sendMessage(cmdContext, "Home deleted!");
         else
-            sendMessage(cmdContext, "Could not find home of " + username + ": " + homeName);
+        {
+            if(homeName.isEmpty())
+                sendMessage(cmdContext, username + " had no default home.");
+            else
+                sendMessage(cmdContext, username + " had no home by the name " + homeName + ".");
+        }
 
         return 1;
     }
 
-    private static int cmdHomes_delete_all(CommandContext<CommandSource> cmdContext)
+    private static int cmdHomes_delete_default(CommandContext<CommandSource> cmdContext)
+    { return cmdHomes_delete(cmdContext, ""); }
+
+    private static int cmdHomes_delete_specified(CommandContext<CommandSource> cmdContext)
+    { return cmdHomes_delete(cmdContext, StringArgumentType.getString(cmdContext, "home name")); }
+
+    private static int cmdHomes_deleteall(CommandContext<CommandSource> cmdContext)
     {
         String username = StringArgumentType.getString(cmdContext, "username");
         UUID playerId = getLastKnownUUIDOfPlayer(username);
@@ -528,10 +540,15 @@ public class HomeCommandsHandler
             return 1;
         }
 
-        if(Homes.clear(playerId).isEmpty())
-            sendMessage(cmdContext, "Player had no homes to delete.");
+        PlayerHomesList phl = Homes.getForIfPresent(playerId);
+
+        if((phl != null) && (!phl.isEmpty()))
+        {
+            phl.clear();
+            sendMessage(cmdContext, "All homes of " + username + " deleted!");
+        }
         else
-            sendMessage(cmdContext, "All homes of player deleted.");
+            sendMessage(cmdContext, username + " had no homes to delete.");
 
         return 1;
     }
@@ -550,11 +567,13 @@ public class HomeCommandsHandler
         String homeName = StringArgumentType.getString(cmdContext, "home name");
         ServerPlayerEntity player = (ServerPlayerEntity)cmdContext.getSource().getEntity();
         assert player != null;
+        PlayerHomesList phl = Homes.getForIfPresent(homeOwningPlayerId);
+        PlayerHome home;
 
-        try
-        { Homes.tpPlayerToHome(player, homeOwningPlayerId, homeName); }
-        catch(Homes.NoSuchHomeException e)
-        { sendMessage(cmdContext, "That player does not have a home by the name: " + e.getHomeName()); }
+        if((phl != null) && ((home = phl.getHome(homeName)) != null))
+            home.tpHere(player);
+        else
+            sendMessage(cmdContext, homeOwningPlayerName + " does not have a home by the name " + homeName);
 
         return 1;
     }
@@ -579,11 +598,16 @@ public class HomeCommandsHandler
         }
 
         String homeName = StringArgumentType.getString(cmdContext, "home name");
+        PlayerHomesList phl = Homes.getForIfPresent(playerId);
+        PlayerHome home;
 
-        try
-        { Homes.tpPlayerToHome(player, homeName); }
-        catch(Homes.NoSuchHomeException e)
-        { sendMessage(cmdContext, "That player does not have a home by the name: " + e.getHomeName()); }
+        if((phl != null) && ((home = phl.getHome(homeName)) != null))
+        {
+            home.tpHere(player);
+            sendMessage(cmdContext, "Sent " + playerName + " to their home of " + homeName + ".");
+        }
+        else
+            sendMessage(cmdContext, playerName + " does not have a home by the name " + homeName + ".");
 
         return 1;
     }
@@ -617,11 +641,17 @@ public class HomeCommandsHandler
         }
 
         String homeName = StringArgumentType.getString(cmdContext, "home name");
+        PlayerHomesList phl = Homes.getForIfPresent(homeOwningPlayerId);
+        PlayerHome home;
 
-        try
-        { Homes.tpPlayerToHome(beingTpedPlayer, homeName); }
-        catch(Homes.NoSuchHomeException e)
-        { sendMessage(cmdContext, homeOwningPlayerName + " does not have a home by the name: " + e.getHomeName()); }
+        if((phl != null) && ((home = phl.getHome(homeName)) != null))
+        {
+            home.tpHere(beingTpedPlayer);
+            sendMessage(cmdContext, "Sent " + beingTpedPlayerName + " to " + homeOwningPlayerName + "'s home of "
+                                    + homeName);
+        }
+        else
+            sendMessage(cmdContext, homeOwningPlayerName + " does not have a home by the name of " + homeName + ".");
 
         return 1;
     }

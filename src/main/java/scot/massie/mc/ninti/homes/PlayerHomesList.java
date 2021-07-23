@@ -1,6 +1,7 @@
 package scot.massie.mc.ninti.homes;
 
 import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraftforge.common.UsernameCache;
 import scot.massie.lib.permissions.PermissionStatus;
 import scot.massie.mc.ninti.core.Permissions;
 import scot.massie.mc.ninti.core.PluginUtils;
@@ -33,6 +34,19 @@ public final class PlayerHomesList
     {
         synchronized(playerHomes)
         { return playerHomes.isEmpty(); }
+    }
+
+    public UUID getPlayerId()
+    { return playerId; }
+
+    public String getPlayerName()
+    {
+        String username = UsernameCache.getLastKnownUsername(playerId);
+
+        if(username == null)
+            username = playerId.toString();
+
+        return username;
     }
 
     public PlayerHome getHome(String homeName)

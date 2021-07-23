@@ -44,6 +44,9 @@ public class PlayerHome
         this.location = location;
     }
 
+    public String getName()
+    { return homeName; }
+
     public EntityLocation getLocation()
     { return location; }
 
