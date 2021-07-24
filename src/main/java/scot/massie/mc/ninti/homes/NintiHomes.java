@@ -1,6 +1,7 @@
 package scot.massie.mc.ninti.homes;
 
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
@@ -71,6 +72,17 @@ public class NintiHomes
     public void onServerStarting(@SuppressWarnings("unused") FMLServerStartingEvent event)
     {
         // do something when the server starts
+    }
+
+    @SubscribeEvent
+    public void registerCommands(RegisterCommandsEvent event)
+    {
+        event.getDispatcher().register(HomeCommandsHandler.homeCommand);
+        event.getDispatcher().register(HomeCommandsHandler.sethomeCommand);
+        event.getDispatcher().register(HomeCommandsHandler.delhomeCommand);
+        event.getDispatcher().register(HomeCommandsHandler.gettphomecostCommand);
+        event.getDispatcher().register(HomeCommandsHandler.listhomesCommand);
+        event.getDispatcher().register(HomeCommandsHandler.homesCommand);
     }
 
     // You can use EventBusSubscriber to automatically subscribe events on the contained class (this is subscribing to the MOD
