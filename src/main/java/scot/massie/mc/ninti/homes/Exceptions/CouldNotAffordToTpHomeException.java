@@ -5,7 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-public class CouldNotAffordToTpHomeException extends Exception
+public final class CouldNotAffordToTpHomeException extends Exception
 {
     public CouldNotAffordToTpHomeException(UUID playerId, String homeName, Map<String, Double> costs)
     {
@@ -14,9 +14,9 @@ public class CouldNotAffordToTpHomeException extends Exception
         this.costs = Collections.unmodifiableMap(new HashMap<>(costs));
     }
 
-    protected final UUID playerId;
-    protected final String homeName;
-    protected final Map<String, Double> costs;
+    private final UUID playerId;
+    private final String homeName;
+    private final Map<String, Double> costs;
 
     public UUID getPlayerId()
     { return playerId; }

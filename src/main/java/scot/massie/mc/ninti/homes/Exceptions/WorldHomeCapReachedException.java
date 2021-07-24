@@ -1,12 +1,10 @@
 package scot.massie.mc.ninti.homes.Exceptions;
 
-import scot.massie.mc.ninti.homes.Homes;
-
 import java.util.UUID;
 
 import static scot.massie.mc.ninti.homes.NintiHomesStaticUtilMethods.*;
 
-public class WorldHomeCapReachedException extends HomeCapReachedException
+public final class WorldHomeCapReachedException extends HomeCapReachedException
 {
     public WorldHomeCapReachedException(UUID playerId, int homesAllowed, String worldId)
     {
@@ -16,7 +14,7 @@ public class WorldHomeCapReachedException extends HomeCapReachedException
         this.worldId = worldId;
     }
 
-    protected final String worldId;
+    private final String worldId;
 
     public String getWorldId()
     { return worldId; }

@@ -22,8 +22,8 @@ import java.util.UUID;
 
 public final class PlayerHomesList
 {
-    final UUID playerId;
-    final Map<String, PlayerHome> playerHomes = new HashMap<>();
+    private final UUID playerId;
+    private final Map<String, PlayerHome> playerHomes = new HashMap<>();
 
     public PlayerHomesList(UUID playerId)
     {
@@ -85,7 +85,7 @@ public final class PlayerHomesList
         synchronized(playerHomes)
         {
             for(PlayerHome home : playerHomes.values())
-                if(home.location.getWorldId().equals(worldId))
+                if(home.getLocation().getWorldId().equals(worldId))
                     count++;
         }
 
@@ -99,7 +99,7 @@ public final class PlayerHomesList
         synchronized(playerHomes)
         {
             for(PlayerHome home : playerHomes.values())
-                if(zone.contains(home.location))
+                if(zone.contains(home.getLocation()))
                     count++;
         }
 
@@ -183,7 +183,7 @@ public final class PlayerHomesList
                     int numberOfHomesAllowedInWorld = Integer.parseUnsignedInt(wparg);
                     int numberOfHomesAlreadyInWorld = countHomesInWorld(location.getWorldId());
 
-                    if((existingHome != null) && (existingHome.location.getWorldId().equals(location.getWorldId())))
+                    if(existingHome != null && existingHome.getLocation().getWorldId().equals(location.getWorldId()))
                         numberOfHomesAlreadyInWorld--;
 
                     if(numberOfHomesAlreadyInWorld >= numberOfHomesAllowedInWorld)
@@ -212,7 +212,7 @@ public final class PlayerHomesList
                         int numberOfHomesAllowedInZone = Integer.parseUnsignedInt(zparg);
                         int numberOfHomesAlreadyInZone = countHomesInZone(z);
 
-                        if(existingHome != null && z.contains(existingHome.location))
+                        if(existingHome != null && z.contains(existingHome.getLocation()))
                             numberOfHomesAlreadyInZone--;
 
                         if(numberOfHomesAlreadyInZone >= numberOfHomesAllowedInZone)

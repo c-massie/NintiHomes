@@ -4,8 +4,11 @@ import net.minecraftforge.common.UsernameCache;
 
 import java.util.UUID;
 
-public class NintiHomesStaticUtilMethods
+public final class NintiHomesStaticUtilMethods
 {
+    private NintiHomesStaticUtilMethods()
+    {}
+
     public static String getHowToReferToPlayer(UUID playerId)
     {
         String name = UsernameCache.getLastKnownUsername(playerId);

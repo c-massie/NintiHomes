@@ -6,8 +6,6 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.event.server.FMLServerStartingEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 // The value here should match an entry in the META-INF/mods.toml file
 @Mod("nintihomes")
@@ -52,9 +50,6 @@ public class NintiHomes
 
      */
 
-    // Directly reference a log4j logger.
-    private static final Logger LOGGER = LogManager.getLogger();
-
     public NintiHomes()
     {
         // Register the setup method for modloading
@@ -62,6 +57,7 @@ public class NintiHomes
         // Register the enqueueIMC method for modloading
 
         // Register ourselves for server and other game events we are interested in
+        //noinspection ThisEscapedInObjectConstruction
         MinecraftForge.EVENT_BUS.register(this);
     }
 
@@ -72,7 +68,7 @@ public class NintiHomes
 
     // You can use SubscribeEvent and let the Event Bus discover methods to call
     @SubscribeEvent
-    public void onServerStarting(FMLServerStartingEvent event)
+    public void onServerStarting(@SuppressWarnings("unused") FMLServerStartingEvent event)
     {
         // do something when the server starts
     }

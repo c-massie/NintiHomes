@@ -25,7 +25,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-public class PlayerHome
+public final class PlayerHome
 {
     final static Equation.Builder tpCostEqBuilder
             = new Equation.Builder()
@@ -33,9 +33,9 @@ public class PlayerHome
                       .withVariable("distance", 0)
                       .withVariable("isAcrossWorlds", 0);
 
-    final UUID playerId;
-    final String homeName;
-    final EntityLocation location;
+    private final UUID playerId;
+    private final String homeName;
+    private final EntityLocation location;
 
     public PlayerHome(UUID playerId, String homeName, EntityLocation location)
     {
@@ -52,6 +52,9 @@ public class PlayerHome
 
     public ServerPlayerEntity getPlayer()
     { return PluginUtils.getServer().getPlayerList().getPlayerByUUID(playerId); }
+
+    public UUID getPlayerId()
+    { return playerId; }
 
     public String getPlayerName()
     { return UsernameCache.getLastKnownUsername(playerId); }

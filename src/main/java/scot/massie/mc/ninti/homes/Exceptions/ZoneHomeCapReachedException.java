@@ -1,12 +1,10 @@
 package scot.massie.mc.ninti.homes.Exceptions;
 
-import scot.massie.mc.ninti.homes.Homes;
-
 import java.util.UUID;
 
 import static scot.massie.mc.ninti.homes.NintiHomesStaticUtilMethods.*;
 
-public class ZoneHomeCapReachedException extends HomeCapReachedException
+public final class ZoneHomeCapReachedException extends HomeCapReachedException
 {
     public ZoneHomeCapReachedException(UUID playerId, int homesAllowed, String zoneName)
     {
@@ -16,7 +14,7 @@ public class ZoneHomeCapReachedException extends HomeCapReachedException
         this.zoneName = zoneName;
     }
 
-    protected final String zoneName;
+    private final String zoneName;
 
     public String getZoneName()
     { return zoneName; }

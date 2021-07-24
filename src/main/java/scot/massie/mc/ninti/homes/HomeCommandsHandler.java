@@ -29,8 +29,11 @@ import java.util.stream.Collectors;
 import static net.minecraft.command.Commands.*;
 import static scot.massie.mc.ninti.core.PluginUtils.*;
 
-public class HomeCommandsHandler
+public final class HomeCommandsHandler
 {
+    private HomeCommandsHandler()
+    {}
+
     /*
 
     home
@@ -48,6 +51,7 @@ public class HomeCommandsHandler
     homes create [username]
     homes delete [username] [homename]
     homes delete [username]
+    homes deleteall [username]
     homes tpme [username] [homename]
     homes tp [username] [homename]
     homes tptoother [username to tp] [username with home] [homename]
@@ -363,7 +367,7 @@ public class HomeCommandsHandler
                 sendMessage(cmdContext, "Did not have a default home to get the cost to teleport to.");
             else
                 sendMessage(cmdContext, "Did not have a home by the name " + homeName + " to get the cost to teleport"
-                                        + "to.");
+                                        + " to.");
 
             return 1;
         }
@@ -463,7 +467,7 @@ public class HomeCommandsHandler
         }
 
         StringBuilder msgBuilder = new StringBuilder("Homes of ").append(username).append(":");
-        ArrayList<PlayerHome> homes = new ArrayList<>(phl.getHomes());
+        List<PlayerHome> homes = new ArrayList<>(phl.getHomes());
         homes.sort(Comparator.comparing(PlayerHome::getName));
 
         for(PlayerHome home : homes)

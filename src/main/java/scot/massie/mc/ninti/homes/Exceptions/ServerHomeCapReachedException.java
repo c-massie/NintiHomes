@@ -4,7 +4,7 @@ import java.util.UUID;
 
 import static scot.massie.mc.ninti.homes.NintiHomesStaticUtilMethods.getHowToReferToPlayer;
 
-public class ServerHomeCapReachedException extends HomeCapReachedException
+public final class ServerHomeCapReachedException extends HomeCapReachedException
 {
     public ServerHomeCapReachedException(UUID playerId, int homesAllowed)
     {

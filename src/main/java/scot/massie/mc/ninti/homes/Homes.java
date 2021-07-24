@@ -12,7 +12,6 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.file.CopyOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -113,19 +112,20 @@ public final class Homes
 
             for(PlayerHomesList pHomesList : pHomesLists)
             {
-                String playerId = pHomesList.playerId.toString();
+                String playerId = pHomesList.getPlayerId().toString();
 
                 for(PlayerHome pHome : pHomesList.getHomes())
                 {
                     List<String> row = new ArrayList<>(8);
+                    EntityLocation pHomeLocation = pHome.getLocation();
                     row.add(playerId);
-                    row.add(pHome.homeName);
-                    row.add(pHome.location.getWorldId());
-                    row.add(Double.toString(pHome.location.getX()));
-                    row.add(Double.toString(pHome.location.getY()));
-                    row.add(Double.toString(pHome.location.getZ()));
-                    row.add(Double.toString(pHome.location.getPitch()));
-                    row.add(Double.toString(pHome.location.getYaw()));
+                    row.add(pHome.getName());
+                    row.add(pHomeLocation.getWorldId());
+                    row.add(Double.toString(pHomeLocation.getX()));
+                    row.add(Double.toString(pHomeLocation.getY()));
+                    row.add(Double.toString(pHomeLocation.getZ()));
+                    row.add(Double.toString(pHomeLocation.getPitch()));
+                    row.add(Double.toString(pHomeLocation.getYaw()));
 
                     writer.write(StringUtils.toCSVRow(row, true));
                     writer.newLine();
@@ -145,11 +145,8 @@ public final class Homes
             {
                 e2.printStackTrace();
                 System.err.println("Could not restore homes file - could not move old homes file to proper location."
-                                   + "\nIt should be at: " + saveFileBackupLocation.toString());
-                return;
+                                   + "\nIt should be at: " + saveFileBackupLocation);
             }
-
-            return;
         }
     }
 
@@ -161,7 +158,8 @@ public final class Homes
 
             try(BufferedReader reader = new BufferedReader(new FileReader(saveFileLocation.toFile())))
             {
-                String line = reader.readLine(); // Ignore first line, this should be the header.
+                @SuppressWarnings("UnusedAssignment") // Ignore first line, this should be the header.
+                String line = reader.readLine();
 
                 while((line = reader.readLine()) != null)
                 {
